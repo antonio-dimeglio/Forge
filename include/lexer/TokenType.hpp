@@ -6,16 +6,20 @@ enum class TokenType {
     // Literals
     NUMBER, STRING, TRUE, FALSE,
 
-    // Operators 
+    // Operators
     PLUS, MINUS, MULT, DIV, ASSIGN,
-    EQUAL_EQUAL, NOT_EQUAL, LESS, GREATER, 
+    EQUAL_EQUAL, NOT_EQUAL, LESS, GREATER, NOT,
+    LOGIC_AND, BITWISE_AND, LOGIC_OR, BITWISE_OR,
+    GEQ, LEQ, ARROW,
+    PLUS_EQ, MINUS_EQ, MULT_EQ, DIV_EQ,
 
     // Keywords
     IF, ELSE, WHILE, FOR, DEF, RETURN,
     INT, STR, BOOL, FLOAT, DOUBLE,
 
     // Punctuation
-    LPAREN, RPAREN, LBRACE, RBRACE, COMMA, COLON,
+    LPAREN, RPAREN, LBRACE, RBRACE, LSQUARE, RSQUARE,
+    COMMA, COLON,
 
     // Special
     IDENTIFIER, NEWLINE, END_OF_FILE
@@ -35,12 +39,20 @@ inline std::string tokenTypeToString(TokenType tt) {
 
         case TokenType::PLUS:
             return "PLUS";
+        case TokenType::PLUS_EQ:
+            return "PLUS_EQ";
         case TokenType::MINUS:
             return "MINUS";
+        case TokenType::MINUS_EQ:
+            return "MINUS_EQ";
         case TokenType::MULT:
             return "MULT";
+        case TokenType::MULT_EQ:
+            return "MULT_EQ";
         case TokenType::DIV:
             return "DIV";
+        case TokenType::DIV_EQ:
+            return "DIV_EQ";
         case TokenType::ASSIGN:
             return "ASSIGN";
         case TokenType::EQUAL_EQUAL:
@@ -51,7 +63,8 @@ inline std::string tokenTypeToString(TokenType tt) {
             return "LESS";
         case TokenType::GREATER:
             return "GREATER";
-
+        case TokenType::NOT:
+            return "NOT";
         case TokenType::IF:
             return "IF";
         case TokenType::ELSE:
@@ -74,6 +87,20 @@ inline std::string tokenTypeToString(TokenType tt) {
             return "FLOAT";
         case TokenType::DOUBLE:
             return "DOUBLE";
+        case TokenType::LOGIC_AND:
+            return "LOGIC_AND";
+        case TokenType::BITWISE_AND:
+            return "BITWISE_AND";
+        case TokenType::LOGIC_OR:
+            return "LOGIC_OR";
+        case TokenType::BITWISE_OR:
+            return "BITWISE_OR";
+        case TokenType::GEQ:
+            return "GEQ";
+        case TokenType::LEQ:
+            return "LEQ";
+        case TokenType::ARROW:
+            return "ARROW";
 
         case TokenType::LPAREN:
             return "LPAREN";
@@ -83,6 +110,10 @@ inline std::string tokenTypeToString(TokenType tt) {
             return "LBRACE";
         case TokenType::RBRACE:
             return "RBRACE";
+        case TokenType::LSQUARE:
+            return "LSQUARE";
+        case TokenType::RSQUARE:
+            return "RSQUARE";
         case TokenType::COMMA:
             return "COMMA";
         case TokenType::COLON:
