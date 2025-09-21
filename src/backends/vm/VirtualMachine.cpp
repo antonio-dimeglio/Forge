@@ -251,6 +251,28 @@ void VirtualMachine::run() {
                 break;
             }
 
+            // Unary operations
+            case OPCode::NEG_INT: {
+                int a = popInt();
+                pushInt(-a);
+                break;
+            }
+            case OPCode::NEG_FLOAT: {
+                float a = popFloat();
+                pushFloat(-a);
+                break;
+            }
+            case OPCode::NEG_DOUBLE: {
+                double a = popDouble();
+                pushDouble(-a);
+                break;
+            }
+            case OPCode::NOT_BOOL: {
+                bool a = popBool();
+                pushBool(!a);
+                break;
+            }
+
             case OPCode::HALT:
                 return;
 
@@ -262,12 +284,30 @@ std::to_string(static_cast<int>(inst.opcode)));
     }
 }
 
-void VirtualMachine::loadProgram(const std::vector<Instruction>& instructions, 
+void VirtualMachine::loadProgram(const std::vector<Instruction>& instructions,
                                 const std::vector<TypedValue>& constants) {
+    loadProgram(instructions, constants, {});
+}
+
+void VirtualMachine::loadProgram(const std::vector<Instruction>& instructions,
+                                const std::vector<TypedValue>& constants,
+                                const std::vector<std::string>& strings) {
     this->instructions = instructions;
     this->constants = constants;
-    ip = 0;  
-    stack.clear(); 
+    ip = 0;
+    stack.clear();
+
+    // Only clear string table if we have strings to intern (new BytecodeCompiler path)
+    // Legacy tests pre-intern strings and expect them to remain
+    if (!strings.empty()) {
+        stringTable.clear();
+        stringCache.clear();
+
+        // Intern all strings from the compiler
+        for (const auto& str : strings) {
+            internString(str);
+        }
+    }
 }
 
 void VirtualMachine::dumpStack() {
@@ -282,7 +322,7 @@ void VirtualMachine::dumpStack() {
     }
 }
 
-inline const char* OpCodeToString(OPCode op) {
+const char* OpCodeToString(OPCode op) {
     switch (op) {
         case OPCode::LOAD_INT: return "LOAD_INT";
         case OPCode::LOAD_FLOAT: return "LOAD_FLOAT";
