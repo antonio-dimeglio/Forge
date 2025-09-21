@@ -1,6 +1,12 @@
 #include "../../include/parser/Parser.hpp"
 #include "../../include/parser/ParserException.hpp"
 
+void Parser::skipNewLines() {
+    while (current().getType() == TokenType::NEWLINE && !isAtEnd()){
+        advance();
+    }
+}
+
 Token Parser::current() {
     if (idx >= tokens.size()) {
         return Token(TokenType::END_OF_FILE, -1, -1);
@@ -36,6 +42,7 @@ void Parser::reset(const std::vector<Token>& tokens) {
 
 
 std::unique_ptr<Expression> Parser::generateAST() {
+    skipNewLines();
     auto root = expression();
     
     if (current().getType() != TokenType::END_OF_FILE) {

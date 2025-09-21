@@ -21,6 +21,8 @@ class Parser {
         std::unique_ptr<Expression> factor();
         std::unique_ptr<Expression> unary();
         std::unique_ptr<Expression> primary();
+
+        void skipNewLines();
     public:
         Parser(const std::vector<Token>& tokens) : tokens(tokens) {};
         std::unique_ptr<Expression> generateAST();
