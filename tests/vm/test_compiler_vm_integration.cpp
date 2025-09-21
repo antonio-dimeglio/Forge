@@ -2,6 +2,7 @@
 #include "../../include/backends/vm/BytecodeCompiler.hpp"
 #include "../../include/backends/vm/VirtualMachine.hpp"
 #include "../../include/parser/Expression.hpp"
+#include "../../include/parser/Statement.hpp"
 #include "../../include/lexer/Token.hpp"
 
 class CompilerVMIntegrationTest : public ::testing::Test {
@@ -56,9 +57,17 @@ protected:
         return std::make_unique<UnaryExpression>(op, std::move(operand));
     }
 
+    // Helper to wrap expression in a Program statement for compilation
+    std::unique_ptr<Statement> wrapInProgram(std::unique_ptr<Expression> expr) {
+        auto exprStmt = std::make_unique<ExpressionStatement>(std::move(expr));
+        std::vector<std::unique_ptr<Statement>> statements;
+        statements.push_back(std::move(exprStmt));
+        return std::make_unique<Program>(std::move(statements));
+    }
+
     // Helper to compile and load program into VM
     void compileAndLoad(std::unique_ptr<Expression> expr) {
-        auto program = compiler.compile(std::move(expr));
+        auto program = compiler.compile(wrapInProgram(std::move(expr)));
         vm.loadProgram(program.instructions, program.constants, program.strings);
     }
 };

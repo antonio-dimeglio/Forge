@@ -51,3 +51,15 @@ std::string UnaryExpression::toString(int indent) const {
     ss << makeIndent(indent + 1) << "Operand:\n" << operand->toString(indent + 2);
     return ss.str();
 }
+
+void FunctionCall::accept(BytecodeCompiler& compiler) const {
+    compiler.compileFunctionCall(*this);
+}
+
+std::string FunctionCall::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "FunctionCall: " << functionName << "()";
+    // Later you can add argument printing
+    return ss.str();
+}

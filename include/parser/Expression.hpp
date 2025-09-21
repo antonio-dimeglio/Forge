@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 #include "../lexer/Token.hpp"
 
 class BytecodeCompiler;
@@ -53,6 +54,18 @@ class UnaryExpression: public Expression {
             Token operator_,
             std::unique_ptr<Expression> operand
         ) : operator_(operator_), operand(std::move(operand)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class FunctionCall : public Expression {
+    public:
+        std::string functionName;
+        std::vector<std::unique_ptr<Expression>> arguments;  
+
+        FunctionCall(std::string name, std::vector<std::unique_ptr<Expression>> args = {})
+            : functionName(name), arguments(std::move(args)) {}
+
         void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };

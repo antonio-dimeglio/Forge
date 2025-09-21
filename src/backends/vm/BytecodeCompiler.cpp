@@ -1,11 +1,15 @@
 #include "../../../include/backends/vm/VirtualMachine.hpp"
 #include "../../../include/backends/vm/BytecodeCompiler.hpp"
+#include <iostream>
 
 static const std::unordered_map<TokenType, TypedValue::Type> typeTable = {
     {TokenType::INT, TypedValue::Type::INT},
     {TokenType::FLOAT, TypedValue::Type::FLOAT},
     {TokenType::DOUBLE, TypedValue::Type::DOUBLE},
     {TokenType::BOOL, TypedValue::Type::BOOL},
+    {TokenType::TRUE, TypedValue::Type::BOOL},
+    {TokenType::FALSE, TypedValue::Type::BOOL},
+    {TokenType::STR, TypedValue::Type::STRING},
     {TokenType::STRING, TypedValue::Type::STRING}
 };
 
@@ -55,17 +59,22 @@ static const std::unordered_map<TokenType,
 };
 
 TypedValue BytecodeCompiler::inferType(const Token& token){
-    // Handle NUMBER tokens specifically (need to infer int vs float vs double)
+    
     if (token.getType() == TokenType::NUMBER) {
         std::string value = token.getValue();
         TypedValue val;
 
-        // If it contains a decimal point, treat as float
         if (value.find('.') != std::string::npos) {
-            val.type = TypedValue::Type::FLOAT;
-            val.value.f = std::stof(value);
+            if (value.back() == 'f') {
+                // Float suffix found
+                val.type = TypedValue::Type::FLOAT;
+                val.value.f = std::stof(value.substr(0, value.length()-1)); // Remove 'f'
+            } else {
+                // Default to double for decimal numbers  
+                val.type = TypedValue::Type::DOUBLE;
+                val.value.d = std::stod(value);
+            }
         } else {
-            // Otherwise treat as int
             val.type = TypedValue::Type::INT;
             val.value.i = std::stoi(value);
         }
@@ -115,12 +124,13 @@ TypedValue BytecodeCompiler::inferType(const Token& token){
 }
 
 
-BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Expression> ast) {
+BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Statement> ast) {
     instructions.clear();
     constants.clear();
     tempStringPool.clear();
+    nextSlot = 0;
 
-    compileExpression(*ast);
+    ast->accept(*this);
 
     return CompiledProgram {
         .instructions = instructions,
@@ -207,8 +217,16 @@ TypedValue::Type BytecodeCompiler::compileUnary(const UnaryExpression& node) {
 }
 
 TypedValue::Type BytecodeCompiler::compileIdentifier(const IdentifierExpression& node) {
-    throw RuntimeException("Variables not yet implemented: " + node.name);
-}
+    auto variable = node.name;
+    auto it = symbolTable.find(variable);
+
+    if (it == symbolTable.end()) {
+        throw RuntimeException("Undefined variable: " + node.name);
+    }
+
+    emit(OPCode::LOAD_LOCAL, it->second.slot);
+    return it->second.type;
+}   
 
 OPCode BytecodeCompiler::getOpCode(TokenType op, TypedValue::Type type, bool isUnary) {
     const auto& table = isUnary ? unaryOpcodeTable : binaryOpcodeTable;
@@ -224,4 +242,33 @@ OPCode BytecodeCompiler::getOpCode(TokenType op, TypedValue::Type type, bool isU
     }
 
     return typeIt->second;
+}
+
+TypedValue::Type BytecodeCompiler::compileFunctionCall(const FunctionCall& /* node */) {
+    throw RuntimeException("Function calls not yet implemented");
+}
+
+void BytecodeCompiler::compileVariableDeclaration(const VariableDeclaration& node) {
+    auto variable = node.variable.getValue();
+
+    TypedValue::Type varType = typeTable.find(node.type.getType())->second;
+
+    VariableInfo info = {nextSlot++, varType};
+    symbolTable[variable] = info;
+
+    node.expr->accept(*this);
+    emit(OPCode::STORE_LOCAL, info.slot);
+}
+
+void BytecodeCompiler::compileAssignment(const Assignment& node) {
+    auto variable = node.variable.getValue();
+
+    auto it = symbolTable.find(variable);
+    if (it == symbolTable.end()) {
+        throw RuntimeException("Tried to assign value to un-initialized variable at " +
+            std::to_string(node.variable.getLine()) + ":" + std::to_string(node.variable.getColumn()));
+    }
+
+    node.expr->accept(*this);
+    emit(OPCode::STORE_LOCAL, it->second.slot);
 }

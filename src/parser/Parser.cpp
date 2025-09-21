@@ -41,28 +41,58 @@ void Parser::reset(const std::vector<Token>& tokens) {
 }
 
 
-std::unique_ptr<Expression> Parser::generateAST() {
+std::unique_ptr<Statement> Parser::parseStatement() {
     skipNewLines();
-    auto root = expression();
-    
-    if (current().getType() != TokenType::END_OF_FILE) {
-        throw ParsingException("Failed to parse file, stopped at ", current().getLine(), current().getColumn());
+
+    if (isAtEnd() || current().getType() == TokenType::END_OF_FILE) {
+        return nullptr;
     }
-    return root; 
+
+    TokenType currentType = current().getType();
+    TokenType nextType = peek().getType();
+
+    if (currentType == TokenType::IF) {
+        return parseIfStatement();
+    }
+
+    if (currentType == TokenType::IDENTIFIER) {
+        if (nextType == TokenType::COLON) {
+            return parseVariableDeclaration();
+        }
+        if (nextType == TokenType::ASSIGN) {
+            return parseAssignment();
+        }
+        if (nextType == TokenType::NUMBER || nextType == TokenType::IDENTIFIER) {
+            Token next = peek();
+            throw ParsingException("Unexpected token after identifier. Did you mean to use '=' for assignment or ':' for declaration?", next.getLine(), next.getColumn());
+        }
+    }
+
+    return parseExpressionStatement();
 }
 
-std::unique_ptr<Expression> Parser::expression() {
-    return equality();
+std::unique_ptr<Statement> Parser::parseExpressionStatement() {
+    auto expr = parseExpression();
+
+    Token t = current();
+    if (t.getType() != TokenType::NEWLINE &&
+        t.getType() != TokenType::END_OF_FILE) {
+        throw ParsingException("Unproperly terminated line", t.getLine(), t.getColumn());
+    }
+    
+    return std::make_unique<ExpressionStatement>(std::move(expr));
 }
 
-std::unique_ptr<Expression> Parser::equality() {
-    auto expr = comparison();
+std::unique_ptr<Expression> Parser::parseExpression() {
+    return parseLogicalOr();
+}
 
-    while (current().getType() == TokenType::EQUAL_EQUAL ||
-            current().getType() == TokenType::NOT_EQUAL) {
+std::unique_ptr<Expression> Parser::parseLogicalOr() {
+    auto expr = parseLogicalAnd();
 
+    while (current().getType() == TokenType::LOGIC_OR) {
         Token operator_ = advance();
-        auto right = comparison();
+        auto right = parseLogicalAnd();
 
         expr = std::make_unique<BinaryExpression>(
             std::move(expr), operator_, std::move(right));
@@ -71,8 +101,38 @@ std::unique_ptr<Expression> Parser::equality() {
     return expr;
 }
 
-std::unique_ptr<Expression> Parser::comparison() {
-    auto expr = term();
+std::unique_ptr<Expression> Parser::parseLogicalAnd() {
+    auto expr = parseEquality();
+
+    while (current().getType() == TokenType::LOGIC_AND) {
+        Token operator_ = advance();
+        auto right = parseEquality();
+
+        expr = std::make_unique<BinaryExpression>(
+            std::move(expr), operator_, std::move(right));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Expression> Parser::parseEquality() {
+    auto expr = parseComparison();
+
+    while (current().getType() == TokenType::EQUAL_EQUAL ||
+            current().getType() == TokenType::NOT_EQUAL) {
+
+        Token operator_ = advance();
+        auto right = parseComparison();
+
+        expr = std::make_unique<BinaryExpression>(
+            std::move(expr), operator_, std::move(right));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Expression> Parser::parseComparison() {
+    auto expr = parseTerm();
 
     while (current().getType() == TokenType::GREATER ||
         current().getType() == TokenType::GEQ || 
@@ -80,7 +140,7 @@ std::unique_ptr<Expression> Parser::comparison() {
         current().getType() == TokenType::LEQ ) {
         
         Token operator_ = advance(); 
-        auto right = term();
+        auto right = parseTerm();
         expr = std::make_unique<BinaryExpression>(
             std::move(expr), operator_, std::move(right));
     }
@@ -88,14 +148,14 @@ std::unique_ptr<Expression> Parser::comparison() {
     return expr;
 }
 
-std::unique_ptr<Expression> Parser::term() {
-    auto expr = factor();
+std::unique_ptr<Expression> Parser::parseTerm() {
+    auto expr = parseFactor();
 
     while (current().getType() == TokenType::PLUS ||
             current().getType() == TokenType::MINUS) {
 
         Token operator_ = advance();
-        auto right = factor();
+        auto right = parseFactor();
 
         expr = std::make_unique<BinaryExpression>(
             std::move(expr), operator_, std::move(right));
@@ -104,13 +164,13 @@ std::unique_ptr<Expression> Parser::term() {
     return expr; 
 }
 
-std::unique_ptr<Expression> Parser::factor() {
-    auto expr = unary(); 
+std::unique_ptr<Expression> Parser::parseFactor() {
+    auto expr = parseUnary(); 
 
     while (current().getType() == TokenType::MULT ||
             current().getType() == TokenType::DIV) {
         Token operator_ = advance(); 
-        auto right = unary(); 
+        auto right = parseUnary(); 
         expr = std::make_unique<BinaryExpression>(
             std::move(expr), operator_, std::move(right));
     }
@@ -118,22 +178,22 @@ std::unique_ptr<Expression> Parser::factor() {
     return expr; 
 }
 
-std::unique_ptr<Expression> Parser::unary() {
+std::unique_ptr<Expression> Parser::parseUnary() {
     Token token = current(); 
 
     switch (token.getType()) {
         case TokenType::NOT:
         case TokenType::MINUS: {
                 advance();
-                auto operand = unary();
+                auto operand = parseUnary();
                 return std::make_unique<UnaryExpression>(token, std::move(operand));
             }
         default:
-            return primary();
+            return parsePrimary();
     }
 }
 
-std::unique_ptr<Expression> Parser::primary() {
+std::unique_ptr<Expression> Parser::parsePrimary() {
     Token token = current();
 
     switch (token.getType()) {
@@ -144,11 +204,23 @@ std::unique_ptr<Expression> Parser::primary() {
             advance();
             return std::make_unique<LiteralExpression>(token);
         case TokenType::IDENTIFIER:
-            advance();
+            {
+                Token identifier = advance();
+                if (current().getType() == TokenType::LPAREN) {
+                    advance();
+                    if (current().getType() != TokenType::RPAREN) {
+                        throw ParsingException("Expected )", current().getLine(), current().getColumn());
+                    }
+                    advance();
+                    return std::make_unique<FunctionCall>(identifier.getValue());
+                } else {
+                    return std::make_unique<IdentifierExpression>(identifier.getValue());
+                }
+            }
             return std::make_unique<IdentifierExpression>(token.getValue());
         case TokenType::LPAREN: {
                 advance();
-                auto expr = expression(); 
+                auto expr = parseExpression(); 
                 if (current().getType() != TokenType::RPAREN) {
                     throw ParsingException("Expected )", current().getLine(), current().getColumn());
                 }
@@ -159,3 +231,119 @@ std::unique_ptr<Expression> Parser::primary() {
             throw ParsingException("Invalid expression ", current().getLine(), current().getColumn());
     };
 }
+
+
+std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
+    Token identifier = advance();
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if (identifier.getType() != TokenType::IDENTIFIER) {
+        throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
+    }
+    if ((t = advance()).getType() != TokenType::COLON) {
+        throw ParsingException("Expected :", t.getLine(), t.getColumn());
+    }
+
+    Token type = advance();
+
+    switch (type.getType()) {
+        case TokenType::INT:
+        case TokenType::FLOAT:
+        case TokenType::DOUBLE:
+        case TokenType::BOOL:
+        case TokenType::STR:
+            break; 
+        default:
+            throw ParsingException("Expected type ", type.getLine(), type.getColumn());
+    }
+
+    if (advance().getType() != TokenType::ASSIGN) {
+        throw ParsingException("Expected =", current().getLine(), current().getColumn());
+    }
+
+    auto expression = parseExpression();
+
+    return std::make_unique<VariableDeclaration>(
+        identifier,   
+        type,         
+        std::move(expression)  
+    );   
+}
+
+std::unique_ptr<Statement> Parser::parseAssignment() {
+    Token identifier = advance();
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if (identifier.getType() != TokenType::IDENTIFIER) {
+        throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::ASSIGN) {
+        throw ParsingException("Expected =", t.getLine(), t.getColumn());
+    }
+
+    auto expression = parseExpression();
+
+    return std::make_unique<Assignment>(
+        identifier,         
+        std::move(expression)  
+    ); 
+}   
+
+std::unique_ptr<Statement> Parser::parseIfStatement() {
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if ((t = advance()).getType() != TokenType::IF) {
+        throw ParsingException("Expected if", t.getLine(), t.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::LPAREN) {
+        throw ParsingException("Expected (", t.getLine(), t.getColumn());
+    }
+
+    auto expression = parseExpression();
+
+    if ((t = advance()).getType() != TokenType::RPAREN) {
+        throw ParsingException("Expected )", t.getLine(), t.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::COLON) {
+        throw ParsingException("Expected :", t.getLine(), t.getColumn());
+    }
+    
+    auto bodyStatement = parseStatement();
+
+
+
+    std::vector<std::unique_ptr<Statement>> bodyVector;
+    bodyVector.push_back(std::move(bodyStatement));
+
+    // if (peek().getType() == TokenType::ELSE) {
+    //     do the else
+    // }
+    std::vector<std::unique_ptr<Statement>> emptyElse;
+
+    return std::make_unique<IfStatement>(
+        std::move(expression),
+        std::move(bodyVector),
+        std::move(emptyElse)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseProgram() {
+    skipNewLines();
+    std::vector<std::unique_ptr<Statement>> statements;
+
+    while (!isAtEnd()) {
+        auto stmt = parseStatement();
+        if (stmt == nullptr) {
+            break;  // No more statements to parse
+        }
+        statements.push_back(std::move(stmt));
+        skipNewLines();
+    }
+
+    return std::make_unique<Program>(std::move(statements));
+}
+
+

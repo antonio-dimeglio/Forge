@@ -101,6 +101,11 @@ Token Tokenizer::scanNumber() {
         advance();
     }
 
+    if (!isAtEnd() && current() == 'f') {
+        value.push_back('f');
+        advance();
+    }
+
     return Token(TokenType::NUMBER, value, line, start_column);
 }
 

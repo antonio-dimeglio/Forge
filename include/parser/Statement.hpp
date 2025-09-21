@@ -1,0 +1,78 @@
+#pragma once 
+
+#include <memory>
+#include <string>
+#include <vector>
+#include "Expression.hpp"
+
+class BytecodeCompiler;
+
+class Statement {
+    public:
+        virtual ~Statement() = default;
+        virtual void accept(BytecodeCompiler& compiler) const = 0;
+        virtual std::string toString(int indent = 0) const = 0;
+};
+
+class ExpressionStatement : public Statement {
+    public:
+        std::unique_ptr<Expression> expression;
+
+        ExpressionStatement(std::unique_ptr<Expression> expr)
+            : expression(std::move(expr)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+
+class VariableDeclaration: public Statement {
+    public:
+        Token variable;
+        Token type;
+        std::unique_ptr<Expression> expr; 
+        VariableDeclaration (
+            Token variable,
+            Token type,
+            std::unique_ptr<Expression> expr
+        ) : variable(variable), type(type), expr(std::move(expr)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class Assignment: public Statement {
+    public:
+        Token variable;
+        std::unique_ptr<Expression> expr;
+        Assignment(
+            Token variable,
+            std::unique_ptr<Expression> expr
+        ) : variable(variable), expr(std::move(expr)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class IfStatement: public Statement {
+    public:
+        std::unique_ptr<Expression> condition;
+        std::vector<std::unique_ptr<Statement>> body;
+        std::vector<std::unique_ptr<Statement>> elseBody;
+        IfStatement(
+            std::unique_ptr<Expression> condition,
+            std::vector<std::unique_ptr<Statement>> body,
+            std::vector<std::unique_ptr<Statement>> elseBody = {}
+        ) : condition(std::move(condition)),
+            body(std::move(body)),
+            elseBody(std::move(elseBody)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class Program : public Statement {
+    public:
+        std::vector<std::unique_ptr<Statement>> statements;
+
+        Program(std::vector<std::unique_ptr<Statement>> statements)
+            : statements(std::move(statements)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};

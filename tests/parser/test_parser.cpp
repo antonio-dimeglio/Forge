@@ -1,15 +1,48 @@
 #include <gtest/gtest.h>
 #include "../../include/parser/Parser.hpp"
+#include "../../include/parser/Statement.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
+#include "../../include/parser/ParserException.hpp"
 #include <memory>
 #include <vector>
 
-// Helper function to parse expression from string
-std::unique_ptr<Expression> parseExpression(const std::string& input) {
+// Helper function to parse statement from string
+std::unique_ptr<Statement> parseStatement(const std::string& input) {
     Tokenizer tokenizer(input);
     std::vector<Token> tokens = tokenizer.tokenize();
     Parser parser(tokens);
-    return parser.generateAST();
+    return parser.parseProgram();
+}
+
+// Helper function for backward compatibility with expression tests
+Expression* parseExpressionRaw(const std::string& input) {
+    auto stmt = parseStatement(input);
+    auto program = dynamic_cast<Program*>(stmt.get());
+    if (!program || program->statements.empty()) return nullptr;
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
+    if (!exprStmt) return nullptr;
+
+    return exprStmt->expression.get();
+}
+
+// For tests that expect unique_ptr
+std::unique_ptr<Expression> parseExpression(const std::string& input) {
+    // Parse the statement and extract the expression safely
+    auto stmt = parseStatement(input);
+    auto program = dynamic_cast<Program*>(stmt.get());
+    if (!program || program->statements.empty()) return nullptr;
+
+    // For single expression tests, we should have exactly one statement
+    if (program->statements.size() != 1) {
+        throw std::runtime_error("Expected single expression, got multiple statements");
+    }
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
+    if (!exprStmt) return nullptr;
+
+    // Move the expression out of the statement (transfer ownership)
+    return std::move(exprStmt->expression);
 }
 
 // Helper function to get tokens for manual testing
@@ -634,4 +667,416 @@ TEST_F(ParserTest, ParseAllOperatorPrecedence) {
     auto multiplication = dynamic_cast<BinaryExpression*>(addition->right.get());
     ASSERT_NE(multiplication, nullptr);
     EXPECT_EQ(multiplication->operator_.getType(), TokenType::MULT);
+}
+
+// ================================
+// ===== STATEMENT PARSING TESTS =====
+// ================================
+
+class StatementParserTest : public ::testing::Test {
+protected:
+    void SetUp() override {}
+    void TearDown() override {}
+};
+
+// ===== VARIABLE DECLARATION TESTS =====
+
+TEST_F(StatementParserTest, ParseSimpleVariableDeclaration) {
+    auto stmt = parseStatement("x: int = 42");
+    ASSERT_NE(stmt, nullptr);
+
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements.size(), 1);
+
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+    ASSERT_NE(varDecl, nullptr);
+    EXPECT_EQ(varDecl->variable.getValue(), "x");
+    EXPECT_EQ(varDecl->type.getType(), TokenType::INT);
+
+    auto expr = dynamic_cast<LiteralExpression*>(varDecl->expr.get());
+    ASSERT_NE(expr, nullptr);
+    EXPECT_EQ(expr->value.getValue(), "42");
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationAllTypes) {
+    // Test all supported types
+    auto stmtInt = parseStatement("x: int = 42");
+    auto programInt = dynamic_cast<Program*>(stmtInt.get());
+    auto varDeclInt = dynamic_cast<VariableDeclaration*>(programInt->statements[0].get());
+    EXPECT_EQ(varDeclInt->type.getType(), TokenType::INT);
+
+    auto stmtFloat = parseStatement("y: float = 3.14");
+    auto programFloat = dynamic_cast<Program*>(stmtFloat.get());
+    auto varDeclFloat = dynamic_cast<VariableDeclaration*>(programFloat->statements[0].get());
+    EXPECT_EQ(varDeclFloat->type.getType(), TokenType::FLOAT);
+
+    auto stmtDouble = parseStatement("z: double = 2.718");
+    auto programDouble = dynamic_cast<Program*>(stmtDouble.get());
+    auto varDeclDouble = dynamic_cast<VariableDeclaration*>(programDouble->statements[0].get());
+    EXPECT_EQ(varDeclDouble->type.getType(), TokenType::DOUBLE);
+
+    auto stmtBool = parseStatement("flag: bool = true");
+    auto programBool = dynamic_cast<Program*>(stmtBool.get());
+    auto varDeclBool = dynamic_cast<VariableDeclaration*>(programBool->statements[0].get());
+    EXPECT_EQ(varDeclBool->type.getType(), TokenType::BOOL);
+
+    auto stmtStr = parseStatement("name: str = \"hello\"");
+    auto programStr = dynamic_cast<Program*>(stmtStr.get());
+    auto varDeclStr = dynamic_cast<VariableDeclaration*>(programStr->statements[0].get());
+    EXPECT_EQ(varDeclStr->type.getType(), TokenType::STR);
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationWithComplexExpression) {
+    auto stmt = parseStatement("result: int = 2 + 3 * 4");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    ASSERT_NE(varDecl, nullptr);
+    EXPECT_EQ(varDecl->variable.getValue(), "result");
+
+    auto binaryExpr = dynamic_cast<BinaryExpression*>(varDecl->expr.get());
+    ASSERT_NE(binaryExpr, nullptr);
+    EXPECT_EQ(binaryExpr->operator_.getType(), TokenType::PLUS);
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationWithIdentifiers) {
+    auto stmt = parseStatement("sum: int = x + y");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    auto binaryExpr = dynamic_cast<BinaryExpression*>(varDecl->expr.get());
+    ASSERT_NE(binaryExpr, nullptr);
+
+    auto leftId = dynamic_cast<IdentifierExpression*>(binaryExpr->left.get());
+    auto rightId = dynamic_cast<IdentifierExpression*>(binaryExpr->right.get());
+    ASSERT_NE(leftId, nullptr);
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(leftId->name, "x");
+    EXPECT_EQ(rightId->name, "y");
+}
+
+// ===== VARIABLE DECLARATION ERROR TESTS =====
+
+TEST_F(StatementParserTest, ParseVariableDeclarationMissingColon) {
+    EXPECT_THROW(parseStatement("x int = 42"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationMissingAssign) {
+    EXPECT_THROW(parseStatement("x: int 42"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationInvalidType) {
+    EXPECT_THROW(parseStatement("x: badtype = 42"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseVariableDeclarationMissingExpression) {
+    EXPECT_THROW(parseStatement("x: int ="), ParsingException);
+}
+
+// ===== ASSIGNMENT TESTS =====
+
+TEST_F(StatementParserTest, ParseSimpleAssignment) {
+    auto stmt = parseStatement("x = 100");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 1);
+
+    auto assignment = dynamic_cast<Assignment*>(program->statements[0].get());
+    ASSERT_NE(assignment, nullptr);
+    EXPECT_EQ(assignment->variable.getValue(), "x");
+
+    auto literal = dynamic_cast<LiteralExpression*>(assignment->expr.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(literal->value.getValue(), "100");
+}
+
+TEST_F(StatementParserTest, ParseAssignmentWithComplexExpression) {
+    auto stmt = parseStatement("result = a * 2 + b");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto assignment = dynamic_cast<Assignment*>(program->statements[0].get());
+
+    ASSERT_NE(assignment, nullptr);
+    EXPECT_EQ(assignment->variable.getValue(), "result");
+
+    auto binaryExpr = dynamic_cast<BinaryExpression*>(assignment->expr.get());
+    ASSERT_NE(binaryExpr, nullptr);
+    EXPECT_EQ(binaryExpr->operator_.getType(), TokenType::PLUS);
+}
+
+TEST_F(StatementParserTest, ParseAssignmentMissingEqual) {
+    EXPECT_THROW(parseStatement("x 42"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseAssignmentMissingExpression) {
+    EXPECT_THROW(parseStatement("x ="), ParsingException);
+}
+
+// ===== FUNCTION CALL TESTS =====
+
+TEST_F(StatementParserTest, ParseFunctionCallStatement) {
+    auto stmt = parseStatement("test()");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
+
+    ASSERT_NE(exprStmt, nullptr);
+    auto funcCall = dynamic_cast<FunctionCall*>(exprStmt->expression.get());
+    ASSERT_NE(funcCall, nullptr);
+    EXPECT_EQ(funcCall->functionName, "test");
+    EXPECT_TRUE(funcCall->arguments.empty());
+}
+
+TEST_F(StatementParserTest, ParseMultipleFunctionCalls) {
+    auto stmt = parseStatement("foo()\nbar()");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 2);
+
+    auto exprStmt1 = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
+    auto exprStmt2 = dynamic_cast<ExpressionStatement*>(program->statements[1].get());
+
+    auto funcCall1 = dynamic_cast<FunctionCall*>(exprStmt1->expression.get());
+    auto funcCall2 = dynamic_cast<FunctionCall*>(exprStmt2->expression.get());
+
+    ASSERT_NE(funcCall1, nullptr);
+    ASSERT_NE(funcCall2, nullptr);
+    EXPECT_EQ(funcCall1->functionName, "foo");
+    EXPECT_EQ(funcCall2->functionName, "bar");
+}
+
+TEST_F(StatementParserTest, ParseFunctionCallMissingCloseParen) {
+    EXPECT_THROW(parseStatement("test("), ParsingException);
+}
+
+// ===== IF STATEMENT TESTS =====
+
+TEST_F(StatementParserTest, ParseSimpleIfStatement) {
+    auto stmt = parseStatement("if (x == 5): test()");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
+
+    ASSERT_NE(ifStmt, nullptr);
+
+    // Check condition
+    auto condition = dynamic_cast<BinaryExpression*>(ifStmt->condition.get());
+    ASSERT_NE(condition, nullptr);
+    EXPECT_EQ(condition->operator_.getType(), TokenType::EQUAL_EQUAL);
+
+    // Check body
+    ASSERT_EQ(ifStmt->body.size(), 1);
+    auto bodyStmt = dynamic_cast<ExpressionStatement*>(ifStmt->body[0].get());
+    ASSERT_NE(bodyStmt, nullptr);
+
+    auto funcCall = dynamic_cast<FunctionCall*>(bodyStmt->expression.get());
+    ASSERT_NE(funcCall, nullptr);
+    EXPECT_EQ(funcCall->functionName, "test");
+
+    // Check no else body
+    EXPECT_TRUE(ifStmt->elseBody.empty());
+}
+
+TEST_F(StatementParserTest, ParseIfWithComplexCondition) {
+    auto stmt = parseStatement("if (x + y > 10 * 2): foo()");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
+
+    auto condition = dynamic_cast<BinaryExpression*>(ifStmt->condition.get());
+    ASSERT_NE(condition, nullptr);
+    EXPECT_EQ(condition->operator_.getType(), TokenType::GREATER);
+}
+
+TEST_F(StatementParserTest, ParseIfWithVariableAssignment) {
+    auto stmt = parseStatement("if (flag): x = 42");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
+
+    auto bodyStmt = dynamic_cast<Assignment*>(ifStmt->body[0].get());
+    ASSERT_NE(bodyStmt, nullptr);
+    EXPECT_EQ(bodyStmt->variable.getValue(), "x");
+}
+
+// ===== IF STATEMENT ERROR TESTS =====
+
+TEST_F(StatementParserTest, ParseIfMissingOpenParen) {
+    EXPECT_THROW(parseStatement("if x == 5): test()"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseIfMissingCloseParen) {
+    EXPECT_THROW(parseStatement("if (x == 5: test()"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseIfMissingColon) {
+    EXPECT_THROW(parseStatement("if (x == 5) test()"), ParsingException);
+}
+
+TEST_F(StatementParserTest, ParseIfMissingCondition) {
+    EXPECT_THROW(parseStatement("if (): test()"), ParsingException);
+}
+
+// ===== PROGRAM TESTS (MULTIPLE STATEMENTS) =====
+
+TEST_F(StatementParserTest, ParseMultipleStatements) {
+    auto stmt = parseStatement("x: int = 42\ny: int = 10\nz: int = x + y");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 3);
+
+    auto varDecl1 = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+    auto varDecl2 = dynamic_cast<VariableDeclaration*>(program->statements[1].get());
+    auto varDecl3 = dynamic_cast<VariableDeclaration*>(program->statements[2].get());
+
+    ASSERT_NE(varDecl1, nullptr);
+    ASSERT_NE(varDecl2, nullptr);
+    ASSERT_NE(varDecl3, nullptr);
+
+    EXPECT_EQ(varDecl1->variable.getValue(), "x");
+    EXPECT_EQ(varDecl2->variable.getValue(), "y");
+    EXPECT_EQ(varDecl3->variable.getValue(), "z");
+}
+
+TEST_F(StatementParserTest, ParseMixedStatements) {
+    auto stmt = parseStatement("x: int = 5\nx = 10\nif (x > 5): test()");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 3);
+
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+    auto assignment = dynamic_cast<Assignment*>(program->statements[1].get());
+    auto ifStmt = dynamic_cast<IfStatement*>(program->statements[2].get());
+
+    ASSERT_NE(varDecl, nullptr);
+    ASSERT_NE(assignment, nullptr);
+    ASSERT_NE(ifStmt, nullptr);
+}
+
+TEST_F(StatementParserTest, ParseStatementsWithComments) {
+    auto stmt = parseStatement("x: int = 42 // This is a variable\ny: int = x + 1");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 2);
+
+    auto varDecl1 = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+    auto varDecl2 = dynamic_cast<VariableDeclaration*>(program->statements[1].get());
+
+    ASSERT_NE(varDecl1, nullptr);
+    ASSERT_NE(varDecl2, nullptr);
+    EXPECT_EQ(varDecl1->variable.getValue(), "x");
+    EXPECT_EQ(varDecl2->variable.getValue(), "y");
+}
+
+// ===== NEWLINE AND WHITESPACE HANDLING =====
+
+TEST_F(StatementParserTest, ParseStatementsWithExtraNewlines) {
+    auto stmt = parseStatement("\n\nx: int = 42\n\n\ny: int = 10\n\n");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 2);
+}
+
+TEST_F(StatementParserTest, ParseEmptyProgram) {
+    auto stmt = parseStatement("");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 0);
+}
+
+TEST_F(StatementParserTest, ParseOnlyNewlines) {
+    auto stmt = parseStatement("\n\n\n");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 0);
+}
+
+// ===== COMPLEX NESTED EXPRESSION TESTS =====
+
+TEST_F(StatementParserTest, ParseNestedExpressions) {
+    auto stmt = parseStatement("result: int = ((x + y) * 2) - (z / 4)");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    ASSERT_NE(varDecl, nullptr);
+    auto expr = dynamic_cast<BinaryExpression*>(varDecl->expr.get());
+    ASSERT_NE(expr, nullptr);
+    EXPECT_EQ(expr->operator_.getType(), TokenType::MINUS);
+}
+
+TEST_F(StatementParserTest, ParseComplexIfConditions) {
+    auto stmt = parseStatement("if (!flag && (x > 0)): result = x * 2");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
+
+    ASSERT_NE(ifStmt, nullptr);
+    // Condition should be parsed correctly even if we don't have && operator yet
+    ASSERT_NE(ifStmt->condition, nullptr);
+}
+
+// ===== IDENTIFIER AND LITERAL EDGE CASES =====
+
+TEST_F(StatementParserTest, ParseLongIdentifiers) {
+    auto stmt = parseStatement("very_long_variable_name_with_underscores: int = 42");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    EXPECT_EQ(varDecl->variable.getValue(), "very_long_variable_name_with_underscores");
+}
+
+TEST_F(StatementParserTest, ParseIdentifiersWithNumbers) {
+    auto stmt = parseStatement("var123: int = 456");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    EXPECT_EQ(varDecl->variable.getValue(), "var123");
+}
+
+TEST_F(StatementParserTest, ParseStringLiterals) {
+    auto stmt = parseStatement("name: str = \"Hello, World!\"");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    auto literal = dynamic_cast<LiteralExpression*>(varDecl->expr.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(literal->value.getValue(), "Hello, World!");
+}
+
+// ===== EXPRESSION STATEMENT TESTS =====
+
+TEST_F(StatementParserTest, ParseExpressionStatements) {
+    auto stmt = parseStatement("x + y\n42\n\"hello\"");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    ASSERT_EQ(program->statements.size(), 3);
+
+    auto exprStmt1 = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
+    auto exprStmt2 = dynamic_cast<ExpressionStatement*>(program->statements[1].get());
+    auto exprStmt3 = dynamic_cast<ExpressionStatement*>(program->statements[2].get());
+
+    ASSERT_NE(exprStmt1, nullptr);
+    ASSERT_NE(exprStmt2, nullptr);
+    ASSERT_NE(exprStmt3, nullptr);
+}
+
+// ===== COMPREHENSIVE INTEGRATION TESTS =====
+
+TEST_F(StatementParserTest, ParseComprehensiveProgram) {
+    std::string program = R"(
+        x: int = 10
+        y: int = 20
+        sum: int = x + y
+        product: int = x * y
+
+        x = x + 1
+
+        if (sum > 25):
+            result = sum * 2
+
+        test()
+        foo()
+    )";
+
+    auto stmt = parseStatement(program);
+    auto parsedProgram = dynamic_cast<Program*>(stmt.get());
+    ASSERT_GE(parsedProgram->statements.size(), 7); // At least 7 statements
+}
+
+TEST_F(StatementParserTest, ParseNestedComplexity) {
+    auto stmt = parseStatement("complex: int = (((x + y) * z) - ((a / b) + c)) * 2");
+    auto program = dynamic_cast<Program*>(stmt.get());
+    auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
+
+    ASSERT_NE(varDecl, nullptr);
+    EXPECT_EQ(varDecl->variable.getValue(), "complex");
+
+    // Just verify it parses without error - the expression structure is complex
+    ASSERT_NE(varDecl->expr, nullptr);
 }

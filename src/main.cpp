@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
     }
 
     Parser parser(tokens);
-    std::unique_ptr<Expression> ast = parser.generateAST();
+    std::unique_ptr<Statement> ast = parser.parseProgram();
 
     if (dump_ast) {
         std::cout << "\n=== AST ===\n";

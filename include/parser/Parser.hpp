@@ -1,5 +1,6 @@
 #pragma once 
 #include "Expression.hpp"
+#include "Statement.hpp"
 #include "../lexer/Token.hpp"
 #include <vector>
 #include <memory>
@@ -14,17 +15,25 @@ class Parser {
         Token advance();
         bool isAtEnd();
 
-        std::unique_ptr<Expression> expression();
-        std::unique_ptr<Expression> equality();
-        std::unique_ptr<Expression> comparison();
-        std::unique_ptr<Expression> term();
-        std::unique_ptr<Expression> factor();
-        std::unique_ptr<Expression> unary();
-        std::unique_ptr<Expression> primary();
+        std::unique_ptr<Expression> parseExpression();
+        std::unique_ptr<Expression> parseLogicalOr();
+        std::unique_ptr<Expression> parseLogicalAnd();
+        std::unique_ptr<Expression> parseEquality();
+        std::unique_ptr<Expression> parseComparison();
+        std::unique_ptr<Expression> parseTerm();
+        std::unique_ptr<Expression> parseFactor();
+        std::unique_ptr<Expression> parseUnary();
+        std::unique_ptr<Expression> parsePrimary();
+
+        std::unique_ptr<Statement> parseExpressionStatement();
+        std::unique_ptr<Statement> parseStatement();
+        std::unique_ptr<Statement> parseVariableDeclaration();
+        std::unique_ptr<Statement> parseAssignment();
+        std::unique_ptr<Statement> parseIfStatement();
 
         void skipNewLines();
     public:
         Parser(const std::vector<Token>& tokens) : tokens(tokens) {};
-        std::unique_ptr<Expression> generateAST();
+        std::unique_ptr<Statement> parseProgram();
         void reset(const std::vector<Token>& tokens);
 };

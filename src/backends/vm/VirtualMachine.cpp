@@ -138,6 +138,20 @@ void VirtualMachine::run() {
             case OPCode::LOAD_BOOL:
                 pushBool(constants[inst.operand].value.b);
                 break;
+            case OPCode::STORE_LOCAL:
+                if (inst.operand >= (int)locals.size()) {
+                    locals.resize(inst.operand + 1);
+                }
+                locals[inst.operand] = stack.back();
+                stack.pop_back();
+                break;
+            case OPCode::LOAD_LOCAL: {
+                    if (inst.operand >= (int)locals.size()) {
+                        throw RuntimeException("Invalid local variable slot");
+                    }
+                    stack.push_back(locals[inst.operand]);
+                }
+                break;
 
             case OPCode::ADD_INT: {
                 int b = popInt();
@@ -329,6 +343,8 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::LOAD_DOUBLE: return "LOAD_DOUBLE";
         case OPCode::LOAD_STRING: return "LOAD_STRING";
         case OPCode::LOAD_BOOL: return "LOAD_BOOL";
+        case OPCode::STORE_LOCAL: return "STORE_LOCAL";
+        case OPCode::LOAD_LOCAL: return "LOAD_LOCAL";
 
         case OPCode::ADD_INT: return "ADD_INT";
         case OPCode::SUB_INT: return "SUB_INT";

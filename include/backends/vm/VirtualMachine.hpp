@@ -14,7 +14,8 @@ class VirtualMachine {
         std::vector<std::string> stringTable; 
         std::unordered_map<std::string, size_t> stringCache; 
         size_t ip = 0;
-
+        std::vector<TypedValue> locals;
+        
         void pushInt(int value);
         void pushFloat(float value);
         void pushDouble(double value);
