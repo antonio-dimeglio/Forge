@@ -207,7 +207,12 @@ std::vector<Token> Tokenizer::tokenize() {
                     if (peek() == '=') {
                         tokens.push_back(Token(TokenType::DIV_EQ, "/=", line, column));
                         advance();
-                    } else {
+                    }   else if (peek() == '/') {
+                            while(peek() != '\n' && !isAtEnd()) {
+                                advance();
+                            }                           
+                    } 
+                    else {
                         tokens.push_back(Token(TokenType::DIV, "/", line, column));
                     }
                     break;

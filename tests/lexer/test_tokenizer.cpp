@@ -881,6 +881,105 @@ TEST_F(TokenizerTest, BoundaryConditionsAtEndOfInput) {
     expectToken(tokens[1], TokenType::END_OF_FILE);
 }
 
+// ============= COMMENT TESTS =============
+
+TEST_F(TokenizerTest, BasicSingleLineComment) {
+    auto tokens = tokenize("// This is a comment");
+    ASSERT_EQ(tokens.size(), 1);
+    expectToken(tokens[0], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentWithCodeBefore) {
+    auto tokens = tokenize("x = 5 // This is a comment");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[1], TokenType::ASSIGN);
+    expectToken(tokens[2], TokenType::NUMBER, "5");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentWithCodeAfter) {
+    auto tokens = tokenize("// Comment\nx = 5");
+    ASSERT_EQ(tokens.size(), 5);
+    expectToken(tokens[0], TokenType::NEWLINE);
+    expectToken(tokens[1], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[2], TokenType::ASSIGN);
+    expectToken(tokens[3], TokenType::NUMBER, "5");
+    expectToken(tokens[4], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentWithNewline) {
+    auto tokens = tokenize("// Comment\n");
+    ASSERT_EQ(tokens.size(), 2);
+    expectToken(tokens[0], TokenType::NEWLINE);
+    expectToken(tokens[1], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, MultipleCommentsOnSeparateLines) {
+    auto tokens = tokenize("// First comment\n// Second comment\nx = 1");
+    ASSERT_EQ(tokens.size(), 6);
+    expectToken(tokens[0], TokenType::NEWLINE);
+    expectToken(tokens[1], TokenType::NEWLINE);
+    expectToken(tokens[2], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[3], TokenType::ASSIGN);
+    expectToken(tokens[4], TokenType::NUMBER, "1");
+    expectToken(tokens[5], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentWithSpecialCharacters) {
+    auto tokens = tokenize("// Comment with @#$% special chars!");
+    ASSERT_EQ(tokens.size(), 1);
+    expectToken(tokens[0], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentVsDivision) {
+    // Test that single '/' is still division, not comment
+    auto tokens = tokenize("x / y");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[1], TokenType::DIV);
+    expectToken(tokens[2], TokenType::IDENTIFIER, "y");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentVsDivisionAssignment) {
+    // Test that '/=' is still division assignment, not comment
+    auto tokens = tokenize("x /= 5");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[1], TokenType::DIV_EQ);
+    expectToken(tokens[2], TokenType::NUMBER, "5");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, EmptyCommentLine) {
+    auto tokens = tokenize("//\n");
+    ASSERT_EQ(tokens.size(), 2);
+    expectToken(tokens[0], TokenType::NEWLINE);
+    expectToken(tokens[1], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentAtEndOfFile) {
+    auto tokens = tokenize("x = 5 // Comment at end");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[1], TokenType::ASSIGN);
+    expectToken(tokens[2], TokenType::NUMBER, "5");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, CommentInExpression) {
+    auto tokens = tokenize("3 + 5 // Adding numbers\n* 2");
+    ASSERT_EQ(tokens.size(), 7);
+    expectToken(tokens[0], TokenType::NUMBER, "3");
+    expectToken(tokens[1], TokenType::PLUS);
+    expectToken(tokens[2], TokenType::NUMBER, "5");
+    expectToken(tokens[3], TokenType::NEWLINE);
+    expectToken(tokens[4], TokenType::MULT);
+    expectToken(tokens[5], TokenType::NUMBER, "2");
+    expectToken(tokens[6], TokenType::END_OF_FILE);
+}
+
 TEST_F(TokenizerTest, SpecialCharacterCombinations) {
     EXPECT_THROW(tokenize("@#$"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("#define"), InvalidSyntaxException);
