@@ -325,7 +325,19 @@ void BytecodeCompiler::compileIfStatement(const IfStatement& node) {
     } else {
         instructions[jumpIfFalsePos].operand = instructions.size();
     }
+}
 
+void BytecodeCompiler::compileWhileStatement(const WhileStatement& node) {
+    int loopStart = instructions.size(); 
+    compileExpression(*node.condition);
+
+    int jumpIfFalseCondition = instructions.size();
+    emit(OPCode::JUMP_IF_FALSE, 0);
+
+    node.body->accept(*this);
+    emit(OPCode::JUMP, loopStart);
+
+    instructions[jumpIfFalseCondition].operand = instructions.size();
 }
 
 void BytecodeCompiler::enterScope() {

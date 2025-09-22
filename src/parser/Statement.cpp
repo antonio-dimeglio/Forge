@@ -61,6 +61,19 @@ std::string IfStatement::toString(int indent) const {
     return ss.str();
 }
 
+void WhileStatement::accept(BytecodeCompiler& compiler) const {
+    compiler.compileWhileStatement(*this);
+}
+
+std::string WhileStatement::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "WhileStatement:\n";
+    ss << indentStr << "  Condition:\n" << condition->toString(indent + 2) << "\n";
+    ss << indentStr << "  Body:\n" << body->toString(indent + 2) << "\n";
+    return ss.str();
+}
+
 
 void ExpressionStatement::accept(BytecodeCompiler& compiler) const {
     expression->accept(compiler);

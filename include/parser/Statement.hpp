@@ -79,6 +79,19 @@ class IfStatement: public Statement {
         std::string toString(int indent = 0) const override;
 };
 
+class WhileStatement: public Statement {
+    public:
+        std::unique_ptr<Expression> condition;
+        std::unique_ptr<BlockStatement> body;
+        WhileStatement(
+            std::unique_ptr<Expression> condition,
+            std::unique_ptr<BlockStatement> body
+        ) : condition(std::move(condition)),
+            body(std::move(body)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
 
 class Program : public Statement {
     public:

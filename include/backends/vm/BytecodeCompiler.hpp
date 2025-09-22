@@ -33,6 +33,7 @@ class BytecodeCompiler {
         void compileVariableDeclaration(const VariableDeclaration& node);
         void compileAssignment(const Assignment& node);
         void compileIfStatement(const IfStatement& node);
+        void compileWhileStatement(const WhileStatement& node);
         void compileBlockStatement(const BlockStatement& node);
         void compileProgram(const Program& node);
 

@@ -54,7 +54,9 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     if (currentType == TokenType::IF) {
         return parseIfStatement();
     }
-
+    if (currentType == TokenType::WHILE) {
+        return parseWhileStatement();
+    }
     if (currentType == TokenType::IDENTIFIER) {
         if (nextType == TokenType::COLON) {
             return parseVariableDeclaration();
@@ -392,6 +394,32 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
         std::move(expression),
         std::move(thenBlock),
         std::move(elseBlock)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseWhileStatement() {
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if ((t = advance()).getType() != TokenType::WHILE) {
+        throw ParsingException("Expected while", t.getLine(), t.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::LPAREN) {
+        throw ParsingException("Expected (", t.getLine(), t.getColumn());
+    }
+
+    auto expression = parseExpression();
+
+    if ((t = advance()).getType() != TokenType::RPAREN) {
+        throw ParsingException("Expected )", t.getLine(), t.getColumn());
+    }
+
+    auto body = parseBlockStatement();
+
+
+    return std::make_unique<WhileStatement>(
+        std::move(expression),
+        std::move(body)
     );
 }
 
