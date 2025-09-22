@@ -244,6 +244,303 @@ TEST_F(VMTest, DivDouble) {
     EXPECT_DOUBLE_EQ(result, 3.0);
 }
 
+// ===== BITWISE OPERATIONS =====
+
+TEST_F(VMTest, BitwiseAndInt) {
+    std::vector<TypedValue> constants = {makeInt(12), makeInt(10)};  // 1100 & 1010 = 1000 (8)
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load 12
+        {OPCode::LOAD_INT, 1},   // Load 10
+        {OPCode::BITWISE_AND_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 8);  // 12 & 10 = 8
+}
+
+TEST_F(VMTest, BitwiseOrInt) {
+    std::vector<TypedValue> constants = {makeInt(12), makeInt(10)};  // 1100 | 1010 = 1110 (14)
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load 12
+        {OPCode::LOAD_INT, 1},   // Load 10
+        {OPCode::BITWISE_OR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 14);  // 12 | 10 = 14
+}
+
+TEST_F(VMTest, BitwiseXorInt) {
+    std::vector<TypedValue> constants = {makeInt(15), makeInt(10)};  // 1111 ^ 1010 = 0101 (5)
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load 15
+        {OPCode::LOAD_INT, 1},   // Load 10
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 5);  // 15 ^ 10 = 5
+}
+
+TEST_F(VMTest, BitwiseAndBool) {
+    std::vector<TypedValue> constants = {makeBool(true), makeBool(false)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_BOOL, 0},   // Load true
+        {OPCode::LOAD_BOOL, 1},   // Load false
+        {OPCode::BITWISE_AND_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    bool result = vm.popBool();
+    EXPECT_EQ(result, false);  // true & false = false
+}
+
+TEST_F(VMTest, BitwiseOrBool) {
+    std::vector<TypedValue> constants = {makeBool(true), makeBool(false)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_BOOL, 0},   // Load true
+        {OPCode::LOAD_BOOL, 1},   // Load false
+        {OPCode::BITWISE_OR_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    bool result = vm.popBool();
+    EXPECT_EQ(result, true);  // true | false = true
+}
+
+TEST_F(VMTest, BitwiseXorBool) {
+    std::vector<TypedValue> constants = {makeBool(true), makeBool(false)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_BOOL, 0},   // Load true
+        {OPCode::LOAD_BOOL, 1},   // Load false
+        {OPCode::BITWISE_XOR_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    bool result = vm.popBool();
+    EXPECT_EQ(result, true);  // true ^ false = true
+}
+
+TEST_F(VMTest, BitwiseXorBoolSame) {
+    std::vector<TypedValue> constants = {makeBool(true), makeBool(true)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_BOOL, 0},   // Load true
+        {OPCode::LOAD_BOOL, 1},   // Load true
+        {OPCode::BITWISE_XOR_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    bool result = vm.popBool();
+    EXPECT_EQ(result, false);  // true ^ true = false
+}
+
+TEST_F(VMTest, ComplexBitwiseExpression) {
+    // Test: (5 & 3) ^ (7 | 2) = 1 ^ 7 = 6
+    std::vector<TypedValue> constants = {makeInt(5), makeInt(3), makeInt(7), makeInt(2)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},       // Load 5
+        {OPCode::LOAD_INT, 1},       // Load 3
+        {OPCode::BITWISE_AND_INT, 0}, // 5 & 3 = 1
+        {OPCode::LOAD_INT, 2},       // Load 7
+        {OPCode::LOAD_INT, 3},       // Load 2
+        {OPCode::BITWISE_OR_INT, 0}, // 7 | 2 = 7
+        {OPCode::BITWISE_XOR_INT, 0}, // 1 ^ 7 = 6
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 6);  // (5 & 3) ^ (7 | 2) = 1 ^ 7 = 6
+}
+
+TEST_F(VMTest, BitwiseXorEdgeCases) {
+    // Test XOR with 0 (identity)
+    std::vector<TypedValue> constants = {makeInt(42), makeInt(0)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load 42
+        {OPCode::LOAD_INT, 1},   // Load 0
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 42);  // 42 ^ 0 = 42
+}
+
+TEST_F(VMTest, BitwiseXorSelfCancel) {
+    // Test XOR with self (should be 0)
+    std::vector<TypedValue> constants = {makeInt(123), makeInt(123)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load 123
+        {OPCode::LOAD_INT, 1},   // Load 123
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 0);  // 123 ^ 123 = 0
+}
+
+TEST_F(VMTest, BitwiseOperatorPrecedence) {
+    // Test precedence: a & b ^ c | d should be ((a & b) ^ c) | d
+    // Using: 8 & 4 ^ 2 | 1 = ((8 & 4) ^ 2) | 1 = (0 ^ 2) | 1 = 2 | 1 = 3
+    std::vector<TypedValue> constants = {makeInt(8), makeInt(4), makeInt(2), makeInt(1)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},        // Load 8
+        {OPCode::LOAD_INT, 1},        // Load 4
+        {OPCode::BITWISE_AND_INT, 0}, // 8 & 4 = 0
+        {OPCode::LOAD_INT, 2},        // Load 2
+        {OPCode::BITWISE_XOR_INT, 0}, // 0 ^ 2 = 2
+        {OPCode::LOAD_INT, 3},        // Load 1
+        {OPCode::BITWISE_OR_INT, 0},  // 2 | 1 = 3
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 3);  // ((8 & 4) ^ 2) | 1 = 3
+}
+
+TEST_F(VMTest, BitwiseAllOnesAndZeros) {
+    // Test with all 1s and all 0s patterns
+    std::vector<TypedValue> constants = {makeInt(-1), makeInt(0)};  // -1 is all 1s in two's complement
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load -1 (all 1s)
+        {OPCode::LOAD_INT, 1},   // Load 0
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, -1);  // -1 ^ 0 = -1
+}
+
+TEST_F(VMTest, BitwiseMaxInt) {
+    // Test with maximum integer values
+    std::vector<TypedValue> constants = {makeInt(2147483647), makeInt(1)};  // INT_MAX
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load INT_MAX
+        {OPCode::LOAD_INT, 1},   // Load 1
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 2147483646);  // INT_MAX ^ 1 = INT_MAX - 1
+}
+
+TEST_F(VMTest, BitwiseBoolAllCombinations) {
+    // Test all boolean combinations for XOR
+    // false ^ false = false
+    std::vector<TypedValue> constants1 = {makeBool(false), makeBool(false)};
+    std::vector<Instruction> instructions1 = {
+        {OPCode::LOAD_BOOL, 0},
+        {OPCode::LOAD_BOOL, 1},
+        {OPCode::BITWISE_XOR_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions1, constants1);
+    vm.run();
+    bool result1 = vm.popBool();
+    EXPECT_EQ(result1, false);
+
+    // Reset VM for next test
+    vm.reset();
+
+    // true ^ true = false (already tested above)
+    // false ^ true = true
+    std::vector<TypedValue> constants2 = {makeBool(false), makeBool(true)};
+    std::vector<Instruction> instructions2 = {
+        {OPCode::LOAD_BOOL, 0},
+        {OPCode::LOAD_BOOL, 1},
+        {OPCode::BITWISE_XOR_BOOL, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions2, constants2);
+    vm.run();
+    bool result2 = vm.popBool();
+    EXPECT_EQ(result2, true);
+}
+
+TEST_F(VMTest, BitwiseChainedOperations) {
+    // Test chained operations: a ^ b ^ c (should be left-associative)
+    // 5 ^ 3 ^ 1 = (5 ^ 3) ^ 1 = 6 ^ 1 = 7
+    std::vector<TypedValue> constants = {makeInt(5), makeInt(3), makeInt(1)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},        // Load 5
+        {OPCode::LOAD_INT, 1},        // Load 3
+        {OPCode::BITWISE_XOR_INT, 0}, // 5 ^ 3 = 6
+        {OPCode::LOAD_INT, 2},        // Load 1
+        {OPCode::BITWISE_XOR_INT, 0}, // 6 ^ 1 = 7
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, 7);  // (5 ^ 3) ^ 1 = 7
+}
+
+TEST_F(VMTest, BitwiseNegativeNumbers) {
+    // Test with negative numbers
+    std::vector<TypedValue> constants = {makeInt(-5), makeInt(3)};
+    std::vector<Instruction> instructions = {
+        {OPCode::LOAD_INT, 0},   // Load -5
+        {OPCode::LOAD_INT, 1},   // Load 3
+        {OPCode::BITWISE_XOR_INT, 0},
+        {OPCode::HALT, 0}
+    };
+
+    vm.loadProgram(instructions, constants);
+    vm.run();
+
+    int result = vm.popInt();
+    EXPECT_EQ(result, -5^3);  // -5 ^ 3 = -8 (in two's complement)
+}
+
 // ===== TYPE CONVERSIONS =====
 
 TEST_F(VMTest, IntToDouble) {

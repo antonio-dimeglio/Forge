@@ -1081,3 +1081,257 @@ TEST_F(StatementParserTest, ParseNestedComplexity) {
     // Just verify it parses without error - the expression structure is complex
     ASSERT_NE(varDecl->expr, nullptr);
 }
+
+// ===== BITWISE OPERATOR TESTS =====
+
+TEST_F(ParserTest, ParseBitwiseAndOperator) {
+    auto expr = parseExpression("a & b");
+
+    ASSERT_NE(expr, nullptr);
+    auto binary = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_EQ(binary->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Check operands
+    auto leftId = dynamic_cast<IdentifierExpression*>(binary->left.get());
+    auto rightId = dynamic_cast<IdentifierExpression*>(binary->right.get());
+    ASSERT_NE(leftId, nullptr);
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(leftId->name, "a");
+    EXPECT_EQ(rightId->name, "b");
+}
+
+TEST_F(ParserTest, ParseBitwiseOrOperator) {
+    auto expr = parseExpression("x | y");
+
+    ASSERT_NE(expr, nullptr);
+    auto binary = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_EQ(binary->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Check operands
+    auto leftId = dynamic_cast<IdentifierExpression*>(binary->left.get());
+    auto rightId = dynamic_cast<IdentifierExpression*>(binary->right.get());
+    ASSERT_NE(leftId, nullptr);
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(leftId->name, "x");
+    EXPECT_EQ(rightId->name, "y");
+}
+
+TEST_F(ParserTest, ParseBitwiseXorOperator) {
+    auto expr = parseExpression("m ^ n");
+
+    ASSERT_NE(expr, nullptr);
+    auto binary = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_EQ(binary->operator_.getType(), TokenType::BITWISE_XOR);
+
+    // Check operands
+    auto leftId = dynamic_cast<IdentifierExpression*>(binary->left.get());
+    auto rightId = dynamic_cast<IdentifierExpression*>(binary->right.get());
+    ASSERT_NE(leftId, nullptr);
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(leftId->name, "m");
+    EXPECT_EQ(rightId->name, "n");
+}
+
+TEST_F(ParserTest, ParseBitwiseOperatorPrecedence) {
+    // Test: a & b | c should be parsed as (a & b) | c
+    // because & has higher precedence than |
+    auto expr = parseExpression("a & b | c");
+
+    ASSERT_NE(expr, nullptr);
+    auto bitwiseOr = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(bitwiseOr, nullptr);
+    EXPECT_EQ(bitwiseOr->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Left side should be (a & b)
+    auto bitwiseAnd = dynamic_cast<BinaryExpression*>(bitwiseOr->left.get());
+    ASSERT_NE(bitwiseAnd, nullptr);
+    EXPECT_EQ(bitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Right side should be c
+    auto rightId = dynamic_cast<IdentifierExpression*>(bitwiseOr->right.get());
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(rightId->name, "c");
+}
+
+TEST_F(ParserTest, ParseLogicalVsBitwiseOperators) {
+    // Test: a && b & c || d | e
+    // Should be: ((a && (b & c)) || (d | e))
+    auto expr = parseExpression("a && b & c || d | e\n");
+
+    ASSERT_NE(expr, nullptr);
+    auto logicalOr = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(logicalOr, nullptr);
+    EXPECT_EQ(logicalOr->operator_.getType(), TokenType::LOGIC_OR);
+
+    // Left side should be (a && (b & c))
+    auto logicalAnd = dynamic_cast<BinaryExpression*>(logicalOr->left.get());
+    ASSERT_NE(logicalAnd, nullptr);
+    EXPECT_EQ(logicalAnd->operator_.getType(), TokenType::LOGIC_AND);
+
+    // Right side of logical AND should be (b & c)
+    auto bitwiseAnd = dynamic_cast<BinaryExpression*>(logicalAnd->right.get());
+    ASSERT_NE(bitwiseAnd, nullptr);
+    EXPECT_EQ(bitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Right side of logical OR should be (d | e)
+    auto bitwiseOr = dynamic_cast<BinaryExpression*>(logicalOr->right.get());
+    ASSERT_NE(bitwiseOr, nullptr);
+    EXPECT_EQ(bitwiseOr->operator_.getType(), TokenType::BITWISE_OR);
+}
+
+TEST_F(ParserTest, ParseBitwiseWithArithmetic) {
+    // Test: a + b & c * d
+    // Should be: (a + b) & (c * d)
+    // because arithmetic has higher precedence than bitwise
+    auto expr = parseExpression("a + b & c * d");
+
+    ASSERT_NE(expr, nullptr);
+    auto bitwiseAnd = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(bitwiseAnd, nullptr);
+    EXPECT_EQ(bitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Left side should be (a + b)
+    auto leftAddition = dynamic_cast<BinaryExpression*>(bitwiseAnd->left.get());
+    ASSERT_NE(leftAddition, nullptr);
+    EXPECT_EQ(leftAddition->operator_.getType(), TokenType::PLUS);
+
+    // Right side should be (c * d)
+    auto rightMultiplication = dynamic_cast<BinaryExpression*>(bitwiseAnd->right.get());
+    ASSERT_NE(rightMultiplication, nullptr);
+    EXPECT_EQ(rightMultiplication->operator_.getType(), TokenType::MULT);
+}
+
+TEST_F(ParserTest, ParseBitwiseWithComparison) {
+    // Test: a & b == c | d
+    // Should be: (a & b) == (c | d)
+    // because comparison has lower precedence than bitwise
+    auto expr = parseExpression("a & b == c | d\n");
+
+    ASSERT_NE(expr, nullptr);
+    auto equality = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(equality, nullptr);
+    EXPECT_EQ(equality->operator_.getType(), TokenType::EQUAL_EQUAL);
+
+    // Left side should be (a & b)
+    auto leftBitwiseAnd = dynamic_cast<BinaryExpression*>(equality->left.get());
+    ASSERT_NE(leftBitwiseAnd, nullptr);
+    EXPECT_EQ(leftBitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Right side should be (c | d)
+    auto rightBitwiseOr = dynamic_cast<BinaryExpression*>(equality->right.get());
+    ASSERT_NE(rightBitwiseOr, nullptr);
+    EXPECT_EQ(rightBitwiseOr->operator_.getType(), TokenType::BITWISE_OR);
+}
+
+TEST_F(ParserTest, ParseComplexBitwiseExpression) {
+    // Test: !flag & mask | default_value & 0xFF
+    // Should be: ((!flag & mask) | (default_value & 0xFF))
+    auto expr = parseExpression("!flag & mask | default_value & 255\n");
+
+    ASSERT_NE(expr, nullptr);
+    auto bitwiseOr = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(bitwiseOr, nullptr);
+    EXPECT_EQ(bitwiseOr->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Left side should be (!flag & mask)
+    auto leftBitwiseAnd = dynamic_cast<BinaryExpression*>(bitwiseOr->left.get());
+    ASSERT_NE(leftBitwiseAnd, nullptr);
+    EXPECT_EQ(leftBitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Left side of that should be !flag
+    auto unaryNot = dynamic_cast<UnaryExpression*>(leftBitwiseAnd->left.get());
+    ASSERT_NE(unaryNot, nullptr);
+    EXPECT_EQ(unaryNot->operator_.getType(), TokenType::NOT);
+
+    // Right side should be (default_value & 255)
+    auto rightBitwiseAnd = dynamic_cast<BinaryExpression*>(bitwiseOr->right.get());
+    ASSERT_NE(rightBitwiseAnd, nullptr);
+    EXPECT_EQ(rightBitwiseAnd->operator_.getType(), TokenType::BITWISE_AND);
+}
+
+TEST_F(ParserTest, ParseBitwiseAssociativity) {
+    // Test: a & b & c should be parsed as ((a & b) & c)
+    // Left associative
+    auto expr = parseExpression("a & b & c");
+
+    ASSERT_NE(expr, nullptr);
+    auto outerAnd = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(outerAnd, nullptr);
+    EXPECT_EQ(outerAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Left side should be (a & b)
+    auto innerAnd = dynamic_cast<BinaryExpression*>(outerAnd->left.get());
+    ASSERT_NE(innerAnd, nullptr);
+    EXPECT_EQ(innerAnd->operator_.getType(), TokenType::BITWISE_AND);
+
+    // Right side should be c
+    auto rightId = dynamic_cast<IdentifierExpression*>(outerAnd->right.get());
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(rightId->name, "c");
+}
+
+TEST_F(ParserTest, ParseBitwiseOrAssociativity) {
+    // Test: a | b | c should be parsed as ((a | b) | c)
+    // Left associative
+    auto expr = parseExpression("a | b | c");
+
+    ASSERT_NE(expr, nullptr);
+    auto outerOr = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(outerOr, nullptr);
+    EXPECT_EQ(outerOr->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Left side should be (a | b)
+    auto innerOr = dynamic_cast<BinaryExpression*>(outerOr->left.get());
+    ASSERT_NE(innerOr, nullptr);
+    EXPECT_EQ(innerOr->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Right side should be c
+    auto rightId = dynamic_cast<IdentifierExpression*>(outerOr->right.get());
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(rightId->name, "c");
+}
+
+TEST_F(ParserTest, ParseBitwiseXorPrecedence) {
+    // Test: a & b ^ c | d should be parsed as ((a & b) ^ c) | d
+    auto expr = parseExpression("a & b ^ c | d");
+
+    ASSERT_NE(expr, nullptr);
+    auto or_expr = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(or_expr, nullptr);
+    EXPECT_EQ(or_expr->operator_.getType(), TokenType::BITWISE_OR);
+
+    // Left side should be ((a & b) ^ c)
+    auto xor_expr = dynamic_cast<BinaryExpression*>(or_expr->left.get());
+    ASSERT_NE(xor_expr, nullptr);
+    EXPECT_EQ(xor_expr->operator_.getType(), TokenType::BITWISE_XOR);
+
+    // Left side of XOR should be (a & b)
+    auto and_expr = dynamic_cast<BinaryExpression*>(xor_expr->left.get());
+    ASSERT_NE(and_expr, nullptr);
+    EXPECT_EQ(and_expr->operator_.getType(), TokenType::BITWISE_AND);
+}
+
+
+TEST_F(ParserTest, ParseBitwiseXorAssociativity) {
+    // Test: a ^ b ^ c should be parsed as ((a ^ b) ^ c)
+    // Left associative
+    auto expr = parseExpression("a ^ b ^ c");
+
+    ASSERT_NE(expr, nullptr);
+    auto outerXor = dynamic_cast<BinaryExpression*>(expr.get());
+    ASSERT_NE(outerXor, nullptr);
+    EXPECT_EQ(outerXor->operator_.getType(), TokenType::BITWISE_XOR);
+
+    // Left side should be (a ^ b)
+    auto innerXor = dynamic_cast<BinaryExpression*>(outerXor->left.get());
+    ASSERT_NE(innerXor, nullptr);
+    EXPECT_EQ(innerXor->operator_.getType(), TokenType::BITWISE_XOR);
+
+    // Right side should be c
+    auto rightId = dynamic_cast<IdentifierExpression*>(outerXor->right.get());
+    ASSERT_NE(rightId, nullptr);
+    EXPECT_EQ(rightId->name, "c");
+}

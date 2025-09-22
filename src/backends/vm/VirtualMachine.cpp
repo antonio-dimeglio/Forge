@@ -227,6 +227,42 @@ void VirtualMachine::run() {
                 pushDouble(a / b);
                 break;
             }
+            case OPCode::BITWISE_OR_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushInt(a | b);
+                break;
+            }
+            case OPCode::BITWISE_OR_BOOL: {
+                bool b = popBool();
+                bool a = popBool();
+                pushBool(a | b);
+                break;
+            }
+            case OPCode::BITWISE_AND_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushInt(a & b);
+                break;
+            }
+            case OPCode::BITWISE_AND_BOOL: {
+                bool b = popBool();
+                bool a = popBool();
+                pushBool(a & b);
+                break;
+            }
+            case OPCode::BITWISE_XOR_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushInt(a ^ b);
+                break;
+            }
+            case OPCode::BITWISE_XOR_BOOL: {
+                bool b = popBool();
+                bool a = popBool();
+                pushBool(a ^ b);
+                break;
+            }
 
             case OPCode::INT_TO_DOUBLE: {
                 int a = popInt();
@@ -434,4 +470,15 @@ TypedValue VirtualMachine::getLocal(size_t idx) {
     }
 
     throw RuntimeException("Tried to get value from locals at invalid index.");
+}
+
+void VirtualMachine::reset() {
+    // Clear all VM state
+    stack.clear();
+    constants.clear();
+    instructions.clear();
+    stringTable.clear();
+    stringCache.clear();
+    locals.clear();
+    ip = 0;
 }

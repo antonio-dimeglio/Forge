@@ -293,6 +293,9 @@ std::vector<Token> Tokenizer::tokenize() {
                         tokens.push_back(Token(TokenType::BITWISE_OR, "|", line, column));
                     }
                     break;
+                case '^':
+                    tokens.push_back(Token(TokenType::BITWISE_XOR, "^", line, column));
+                    break;
                 default:
                     throw InvalidSyntaxException("Found invalid character", line, column);
             }

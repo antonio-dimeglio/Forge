@@ -754,3 +754,260 @@ TEST_F(BytecodeCompilerTest, CompileProgramStateReset) {
     EXPECT_TRUE(program1.strings.empty());
     EXPECT_TRUE(program2.strings.empty());
 }
+
+// ============================================================================
+// BINARY EXPRESSION TESTS - BITWISE OPERATORS
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileIntBitwiseAnd) {
+    auto left = makeLiteral(makeIntToken(12));   // 1100 in binary
+    auto right = makeLiteral(makeIntToken(10));  // 1010 in binary
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_AND), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + BITWISE_AND_INT + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[0].operand, 0);  // Index 0 in constants
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[1].operand, 1);  // Index 1 in constants
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_AND_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.i, 12);
+    EXPECT_EQ(program.constants[1].value.i, 10);
+}
+
+TEST_F(BytecodeCompilerTest, CompileIntBitwiseOr) {
+    auto left = makeLiteral(makeIntToken(12));   // 1100 in binary
+    auto right = makeLiteral(makeIntToken(10));  // 1010 in binary
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_OR), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + BITWISE_OR_INT + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[0].operand, 0);  // Index 0 in constants
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[1].operand, 1);  // Index 1 in constants
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_OR_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.i, 12);
+    EXPECT_EQ(program.constants[1].value.i, 10);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBitwiseOperatorPrecedence) {
+    // Test: a | b & c should compile as: a | (b & c)
+    // Since & has higher precedence than |
+    auto a = makeLiteral(makeIntToken(8));   // 1000
+    auto b = makeLiteral(makeIntToken(6));   // 0110
+    auto c = makeLiteral(makeIntToken(4));   // 0100
+
+    // Create (b & c) first
+    auto bc_and = makeBinary(std::move(b), makeOperatorToken(TokenType::BITWISE_AND), std::move(c));
+    // Then create a | (b & c)
+    auto expr = makeBinary(std::move(a), makeOperatorToken(TokenType::BITWISE_OR), std::move(bc_and));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    // Should be: LOAD a, LOAD b, LOAD c, BITWISE_AND, BITWISE_OR, HALT
+    ASSERT_EQ(program.instructions.size(), 6);
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);  // a
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);  // b
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::LOAD_INT);  // c
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::BITWISE_AND_INT);  // b & c
+    EXPECT_EQ(program.instructions[4].opcode, OPCode::BITWISE_OR_INT);   // a | (b & c)
+    EXPECT_EQ(program.instructions[5].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 3);
+    EXPECT_EQ(program.constants[0].value.i, 8);
+    EXPECT_EQ(program.constants[1].value.i, 6);
+    EXPECT_EQ(program.constants[2].value.i, 4);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBitwiseWithArithmetic) {
+    // Test: a + b & c * d
+    // Should be: (a + b) & (c * d) due to precedence
+    auto a = makeLiteral(makeIntToken(1));
+    auto b = makeLiteral(makeIntToken(2));
+    auto c = makeLiteral(makeIntToken(3));
+    auto d = makeLiteral(makeIntToken(4));
+
+    // Create (a + b)
+    auto ab_add = makeBinary(std::move(a), makeOperatorToken(TokenType::PLUS), std::move(b));
+    // Create (c * d)
+    auto cd_mult = makeBinary(std::move(c), makeOperatorToken(TokenType::MULT), std::move(d));
+    // Create (a + b) & (c * d)
+    auto expr = makeBinary(std::move(ab_add), makeOperatorToken(TokenType::BITWISE_AND), std::move(cd_mult));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    // Should be: LOAD a, LOAD b, ADD, LOAD c, LOAD d, MULT, BITWISE_AND, HALT
+    ASSERT_EQ(program.instructions.size(), 8);
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);     // a
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);     // b
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::ADD_INT);      // a + b
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::LOAD_INT);     // c
+    EXPECT_EQ(program.instructions[4].opcode, OPCode::LOAD_INT);     // d
+    EXPECT_EQ(program.instructions[5].opcode, OPCode::MULT_INT);     // c * d
+    EXPECT_EQ(program.instructions[6].opcode, OPCode::BITWISE_AND_INT); // (a+b) & (c*d)
+    EXPECT_EQ(program.instructions[7].opcode, OPCode::HALT);
+}
+
+// ============================================================================
+// BINARY EXPRESSION TESTS - BITWISE OPERATORS ON BOOL
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileBoolBitwiseAnd) {
+    auto left = makeLiteral(makeBoolToken(true));
+    auto right = makeLiteral(makeBoolToken(false));
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_AND), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_BOOL + BITWISE_AND_BOOL + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[0].operand, 0);  // Index 0 in constants
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[1].operand, 1);  // Index 1 in constants
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_AND_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.b, true);
+    EXPECT_EQ(program.constants[1].value.b, false);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBoolBitwiseOr) {
+    auto left = makeLiteral(makeBoolToken(true));
+    auto right = makeLiteral(makeBoolToken(false));
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_OR), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_BOOL + BITWISE_OR_BOOL + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[0].operand, 0);  // Index 0 in constants
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[1].operand, 1);  // Index 1 in constants
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_OR_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.b, true);
+    EXPECT_EQ(program.constants[1].value.b, false);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBoolBitwiseAndAllTrue) {
+    auto left = makeLiteral(makeBoolToken(true));
+    auto right = makeLiteral(makeBoolToken(true));
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_AND), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_BOOL + BITWISE_AND_BOOL + HALT
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_AND_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.b, true);
+    EXPECT_EQ(program.constants[1].value.b, true);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBoolBitwiseOrAllFalse) {
+    auto left = makeLiteral(makeBoolToken(false));
+    auto right = makeLiteral(makeBoolToken(false));
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_OR), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_BOOL + BITWISE_OR_BOOL + HALT
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_OR_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.b, false);
+    EXPECT_EQ(program.constants[1].value.b, false);
+}
+
+TEST_F(BytecodeCompilerTest, CompileNestedBoolBitwiseOperations) {
+    // Test: (true & false) | true
+    auto left_true = makeLiteral(makeBoolToken(true));
+    auto left_false = makeLiteral(makeBoolToken(false));
+    auto and_expr = makeBinary(std::move(left_true), makeOperatorToken(TokenType::BITWISE_AND), std::move(left_false));
+
+    auto right_true = makeLiteral(makeBoolToken(true));
+    auto or_expr = makeBinary(std::move(and_expr), makeOperatorToken(TokenType::BITWISE_OR), std::move(right_true));
+
+    auto program = compiler.compile(wrapInProgram(std::move(or_expr)));
+
+    ASSERT_EQ(program.instructions.size(), 6);  // 3 LOAD_BOOL + BITWISE_AND_BOOL + BITWISE_OR_BOOL + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_AND_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[4].opcode, OPCode::BITWISE_OR_BOOL);
+    EXPECT_EQ(program.instructions[5].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 3);
+}
+
+// ============================================================================
+// ADDITIONAL BITWISE OPERATION TESTS
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileIntBitwiseXor) {
+    auto left = makeLiteral(makeIntToken(15));   // 1111 in binary
+    auto right = makeLiteral(makeIntToken(10));  // 1010 in binary
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_XOR), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + BITWISE_XOR_INT + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_XOR_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.i, 15);
+    EXPECT_EQ(program.constants[1].value.i, 10);
+}
+
+TEST_F(BytecodeCompilerTest, CompileBoolBitwiseXor) {
+    auto left = makeLiteral(makeBoolToken(true));
+    auto right = makeLiteral(makeBoolToken(false));
+    auto expr = makeBinary(std::move(left), makeOperatorToken(TokenType::BITWISE_XOR), std::move(right));
+
+    auto program = compiler.compile(wrapInProgram(std::move(expr)));
+
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_BOOL + BITWISE_XOR_BOOL + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_BOOL);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_XOR_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].value.b, true);
+    EXPECT_EQ(program.constants[1].value.b, false);
+}
+
+TEST_F(BytecodeCompilerTest, CompileIntBitwiseComplexExpression) {
+    // Test: (5 & 3) | (7 ^ 2)
+    auto left_5 = makeLiteral(makeIntToken(5));
+    auto left_3 = makeLiteral(makeIntToken(3));
+    auto and_expr = makeBinary(std::move(left_5), makeOperatorToken(TokenType::BITWISE_AND), std::move(left_3));
+
+    auto right_7 = makeLiteral(makeIntToken(7));
+    auto right_2 = makeLiteral(makeIntToken(2));
+    auto xor_expr = makeBinary(std::move(right_7), makeOperatorToken(TokenType::BITWISE_XOR), std::move(right_2));
+
+    auto or_expr = makeBinary(std::move(and_expr), makeOperatorToken(TokenType::BITWISE_OR), std::move(xor_expr));
+
+    auto program = compiler.compile(wrapInProgram(std::move(or_expr)));
+
+    ASSERT_EQ(program.instructions.size(), 8);  // 4 LOAD_INT + 3 bitwise ops + HALT
+    EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);  // 5
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);  // 3
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::BITWISE_AND_INT);  // 5 & 3
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::LOAD_INT);  // 7
+    EXPECT_EQ(program.instructions[4].opcode, OPCode::LOAD_INT);  // 2
+    EXPECT_EQ(program.instructions[5].opcode, OPCode::BITWISE_XOR_INT);  // 7 ^ 2
+    EXPECT_EQ(program.instructions[6].opcode, OPCode::BITWISE_OR_INT);   // (5&3) | (7^2)
+    EXPECT_EQ(program.instructions[7].opcode, OPCode::HALT);
+    ASSERT_EQ(program.constants.size(), 4);
+}
+

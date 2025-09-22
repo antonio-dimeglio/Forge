@@ -115,6 +115,51 @@ std::unique_ptr<Expression> Parser::parseLogicalAnd() {
     return expr;
 }
 
+
+std::unique_ptr<Expression> Parser::parseBitwiseOr() {
+    auto expr = parseBitwiseXor();
+
+    while (current().getType() == TokenType::BITWISE_OR) {
+        Token operator_ = advance();
+        auto right = parseBitwiseXor();
+
+        expr = std::make_unique<BinaryExpression>(
+            std::move(expr), operator_, std::move(right));
+    }
+
+    return expr;
+}
+
+
+std::unique_ptr<Expression> Parser::parseBitwiseXor() {
+    auto expr = parseBitwiseAnd();
+
+    while (current().getType() == TokenType::BITWISE_XOR) {
+        Token operator_ = advance();
+        auto right = parseBitwiseAnd();
+
+        expr = std::make_unique<BinaryExpression>(
+            std::move(expr), operator_, std::move(right));
+    }
+
+    return expr;
+}
+
+
+std::unique_ptr<Expression> Parser::parseBitwiseAnd() {
+    auto expr = parseTerm();
+
+    while (current().getType() == TokenType::BITWISE_AND) {
+        Token operator_ = advance();
+        auto right = parseTerm();
+
+        expr = std::make_unique<BinaryExpression>(
+            std::move(expr), operator_, std::move(right));
+    }
+
+    return expr;
+}
+
 std::unique_ptr<Expression> Parser::parseEquality() {
     auto expr = parseComparison();
 
@@ -132,7 +177,7 @@ std::unique_ptr<Expression> Parser::parseEquality() {
 }
 
 std::unique_ptr<Expression> Parser::parseComparison() {
-    auto expr = parseTerm();
+    auto expr = parseBitwiseOr();
 
     while (current().getType() == TokenType::GREATER ||
         current().getType() == TokenType::GEQ || 
@@ -140,7 +185,7 @@ std::unique_ptr<Expression> Parser::parseComparison() {
         current().getType() == TokenType::LEQ ) {
         
         Token operator_ = advance(); 
-        auto right = parseTerm();
+        auto right = parseBitwiseOr();
         expr = std::make_unique<BinaryExpression>(
             std::move(expr), operator_, std::move(right));
     }
@@ -375,5 +420,4 @@ std::unique_ptr<Statement> Parser::parseProgram() {
 
     return std::make_unique<Program>(std::move(statements));
 }
-
 

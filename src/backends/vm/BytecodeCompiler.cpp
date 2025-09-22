@@ -47,6 +47,18 @@ static const std::unordered_map<TokenType,
     {TokenType::GREATER, {
         {TypedValue::Type::INT, OPCode::GT_INT},
         {TypedValue::Type::DOUBLE, OPCode::GT_DOUBLE}
+    }},
+    {TokenType::BITWISE_AND, {
+        {TypedValue::Type::INT, OPCode::BITWISE_AND_INT},
+        {TypedValue::Type::BOOL, OPCode::BITWISE_AND_BOOL},
+    }},
+    {TokenType::BITWISE_OR, {
+        {TypedValue::Type::INT, OPCode::BITWISE_OR_INT},
+        {TypedValue::Type::BOOL, OPCode::BITWISE_OR_BOOL}
+    }},
+    {TokenType::BITWISE_XOR, {
+        {TypedValue::Type::INT, OPCode::BITWISE_XOR_INT},
+        {TypedValue::Type::BOOL, OPCode::BITWISE_XOR_BOOL}
     }}
 };
 

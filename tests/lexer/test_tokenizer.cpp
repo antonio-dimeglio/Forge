@@ -469,7 +469,6 @@ TEST_F(TokenizerTest, InvalidCharacters) {
     EXPECT_THROW(tokenize("#"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("$"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("%"), InvalidSyntaxException);
-    EXPECT_THROW(tokenize("^"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("~"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("`"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("\\"), InvalidSyntaxException);
@@ -601,11 +600,12 @@ TEST_F(TokenizerTest, CompoundOperatorEdgeCases) {
 }
 
 TEST_F(TokenizerTest, BitwiseOperators) {
-    auto tokens = tokenize("& |");
-    ASSERT_EQ(tokens.size(), 3);
+    auto tokens = tokenize("& | ^");
+    ASSERT_EQ(tokens.size(), 4);
     expectToken(tokens[0], TokenType::BITWISE_AND, "&");
     expectToken(tokens[1], TokenType::BITWISE_OR, "|");
-    expectToken(tokens[2], TokenType::END_OF_FILE);
+    expectToken(tokens[2], TokenType::BITWISE_XOR, "^");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
 }
 
 TEST_F(TokenizerTest, OperatorPrecedenceTokenization) {
@@ -989,4 +989,189 @@ TEST_F(TokenizerTest, SpecialCharacterCombinations) {
     EXPECT_THROW(tokenize("#define"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("$variable"), InvalidSyntaxException);
     EXPECT_THROW(tokenize("test%"), InvalidSyntaxException);
+}
+
+// ============= COMPREHENSIVE OPERATOR COVERAGE TESTS =============
+
+TEST_F(TokenizerTest, AllComparisonOperators) {
+    auto tokens = tokenize("== != < > <= >=");
+    ASSERT_EQ(tokens.size(), 7);
+    expectToken(tokens[0], TokenType::EQUAL_EQUAL, "==");
+    expectToken(tokens[1], TokenType::NOT_EQUAL, "!=");
+    expectToken(tokens[2], TokenType::LESS, "<");
+    expectToken(tokens[3], TokenType::GREATER, ">");
+    expectToken(tokens[4], TokenType::LEQ, "<=");
+    expectToken(tokens[5], TokenType::GEQ, ">=");
+    expectToken(tokens[6], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, AllLogicalOperators) {
+    auto tokens = tokenize("! && ||");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::NOT, "!");
+    expectToken(tokens[1], TokenType::LOGIC_AND, "&&");
+    expectToken(tokens[2], TokenType::LOGIC_OR, "||");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, AllBitwiseOperators) {
+    auto tokens = tokenize("& | ^");
+    ASSERT_EQ(tokens.size(), 4);
+    expectToken(tokens[0], TokenType::BITWISE_AND, "&");
+    expectToken(tokens[1], TokenType::BITWISE_OR, "|");
+    expectToken(tokens[2], TokenType::BITWISE_XOR, "^");
+    expectToken(tokens[3], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, AllCompoundAssignmentOperators) {
+    auto tokens = tokenize("+= -= *= /=");
+    ASSERT_EQ(tokens.size(), 5);
+    expectToken(tokens[0], TokenType::PLUS_EQ, "+=");
+    expectToken(tokens[1], TokenType::MINUS_EQ, "-=");
+    expectToken(tokens[2], TokenType::MULT_EQ, "*=");
+    expectToken(tokens[3], TokenType::DIV_EQ, "/=");
+    expectToken(tokens[4], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrowOperatorVariations) {
+    auto tokens = tokenize("-> -->-->");
+    ASSERT_EQ(tokens.size(), 6);
+    expectToken(tokens[0], TokenType::ARROW, "->");        // ->
+    expectToken(tokens[1], TokenType::MINUS, "-");         // -
+    expectToken(tokens[2], TokenType::ARROW, "->");        // ->
+    expectToken(tokens[3], TokenType::MINUS, "-");         // -
+    expectToken(tokens[4], TokenType::ARROW, "->");        // ->
+    expectToken(tokens[5], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, OperatorPrecedenceTokens) {
+    auto tokens = tokenize("a && b || c == d != e < f > g <= h >= i");
+    ASSERT_EQ(tokens.size(), 18);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "a");
+    expectToken(tokens[1], TokenType::LOGIC_AND, "&&");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "b");
+    expectToken(tokens[3], TokenType::LOGIC_OR, "||");
+    expectToken(tokens[4], TokenType::IDENTIFIER, "c");
+    expectToken(tokens[5], TokenType::EQUAL_EQUAL, "==");
+    expectToken(tokens[6], TokenType::IDENTIFIER, "d");
+    expectToken(tokens[7], TokenType::NOT_EQUAL, "!=");
+    expectToken(tokens[8], TokenType::IDENTIFIER, "e");
+    expectToken(tokens[9], TokenType::LESS, "<");
+    expectToken(tokens[10], TokenType::IDENTIFIER, "f");
+    expectToken(tokens[11], TokenType::GREATER, ">");
+    expectToken(tokens[12], TokenType::IDENTIFIER, "g");
+    expectToken(tokens[13], TokenType::LEQ, "<=");
+    expectToken(tokens[14], TokenType::IDENTIFIER, "h");
+    expectToken(tokens[15], TokenType::GEQ, ">=");
+    expectToken(tokens[16], TokenType::IDENTIFIER, "i");
+    expectToken(tokens[17], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, MixedOperatorSequences) {
+    auto tokens = tokenize("x+=y*=z/=w-=v");
+    ASSERT_EQ(tokens.size(), 10);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[1], TokenType::PLUS_EQ, "+=");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "y");
+    expectToken(tokens[3], TokenType::MULT_EQ, "*=");
+    expectToken(tokens[4], TokenType::IDENTIFIER, "z");
+    expectToken(tokens[5], TokenType::DIV_EQ, "/=");
+    expectToken(tokens[6], TokenType::IDENTIFIER, "w");
+    expectToken(tokens[7], TokenType::MINUS_EQ, "-=");
+    expectToken(tokens[8], TokenType::IDENTIFIER, "v");
+    expectToken(tokens[9], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, BitwiseVsLogicalOperators) {
+    auto tokens = tokenize("a & b && c | d || e");
+    ASSERT_EQ(tokens.size(), 10);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "a");
+    expectToken(tokens[1], TokenType::BITWISE_AND, "&");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "b");
+    expectToken(tokens[3], TokenType::LOGIC_AND, "&&");
+    expectToken(tokens[4], TokenType::IDENTIFIER, "c");
+    expectToken(tokens[5], TokenType::BITWISE_OR, "|");
+    expectToken(tokens[6], TokenType::IDENTIFIER, "d");
+    expectToken(tokens[7], TokenType::LOGIC_OR, "||");
+    expectToken(tokens[8], TokenType::IDENTIFIER, "e");
+    expectToken(tokens[9], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, OperatorAtTokenBoundaries) {
+    auto tokens = tokenize("&&& ||| === !== <<< >>>>");
+    ASSERT_EQ(tokens.size(), 16);
+    expectToken(tokens[0], TokenType::LOGIC_AND, "&&");   // &&
+    expectToken(tokens[1], TokenType::BITWISE_AND, "&");  // &
+    expectToken(tokens[2], TokenType::LOGIC_OR, "||");    // ||
+    expectToken(tokens[3], TokenType::BITWISE_OR, "|");   // |
+    expectToken(tokens[4], TokenType::EQUAL_EQUAL, "=="); // ==
+    expectToken(tokens[5], TokenType::ASSIGN, "=");       // =
+    expectToken(tokens[6], TokenType::NOT_EQUAL, "!=");   // !=
+    expectToken(tokens[7], TokenType::ASSIGN, "=");       // =
+    expectToken(tokens[8], TokenType::LESS, "<");         // <
+    expectToken(tokens[9], TokenType::LESS, "<");         // <
+    expectToken(tokens[10], TokenType::LESS, "<");        // <
+    expectToken(tokens[11], TokenType::GREATER, ">");     // >
+    expectToken(tokens[12], TokenType::GREATER, ">");     // >
+    expectToken(tokens[13], TokenType::GREATER, ">");     // >
+    expectToken(tokens[14], TokenType::GREATER, ">");     // >
+    expectToken(tokens[15], TokenType::END_OF_FILE);
+}
+
+// ============= EDGE CASE KEYWORD TESTS =============
+
+TEST_F(TokenizerTest, AllKeywordVariations) {
+    auto tokens = tokenize("if else while for def return int str bool float double true false");
+    ASSERT_EQ(tokens.size(), 14);
+    expectToken(tokens[0], TokenType::IF, "if");
+    expectToken(tokens[1], TokenType::ELSE, "else");
+    expectToken(tokens[2], TokenType::WHILE, "while");
+    expectToken(tokens[3], TokenType::FOR, "for");
+    expectToken(tokens[4], TokenType::DEF, "def");
+    expectToken(tokens[5], TokenType::RETURN, "return");
+    expectToken(tokens[6], TokenType::INT, "int");
+    expectToken(tokens[7], TokenType::STR, "str");
+    expectToken(tokens[8], TokenType::BOOL, "bool");
+    expectToken(tokens[9], TokenType::FLOAT, "float");
+    expectToken(tokens[10], TokenType::DOUBLE, "double");
+    expectToken(tokens[11], TokenType::TRUE, "true");
+    expectToken(tokens[12], TokenType::FALSE, "false");
+    expectToken(tokens[13], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, KeywordInComplexContext) {
+    auto tokens = tokenize("def sum(a: int, b: int) -> int: return a + b");
+    ASSERT_EQ(tokens.size(), 19);
+    expectToken(tokens[0], TokenType::DEF, "def");
+    expectToken(tokens[1], TokenType::IDENTIFIER, "sum");
+    expectToken(tokens[2], TokenType::LPAREN, "(");
+    expectToken(tokens[3], TokenType::IDENTIFIER, "a");
+    expectToken(tokens[4], TokenType::COLON, ":");
+    expectToken(tokens[5], TokenType::INT, "int");
+    expectToken(tokens[6], TokenType::COMMA, ",");
+    expectToken(tokens[7], TokenType::IDENTIFIER, "b");
+    expectToken(tokens[8], TokenType::COLON, ":");
+    expectToken(tokens[9], TokenType::INT, "int");
+    expectToken(tokens[10], TokenType::RPAREN, ")");
+    expectToken(tokens[11], TokenType::ARROW, "->");
+    expectToken(tokens[12], TokenType::INT, "int");
+    expectToken(tokens[13], TokenType::COLON, ":");
+    expectToken(tokens[14], TokenType::RETURN, "return");
+    expectToken(tokens[15], TokenType::IDENTIFIER, "a");
+    expectToken(tokens[16], TokenType::PLUS, "+");
+    expectToken(tokens[17], TokenType::IDENTIFIER, "b");
+    expectToken(tokens[18], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, KeywordBoundaryEdgeCases) {
+    // Ensure keywords only match when they are complete words
+    auto tokens = tokenize("iffy elsewise whiles forex defined returned");
+    ASSERT_EQ(tokens.size(), 7);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "iffy");
+    expectToken(tokens[1], TokenType::IDENTIFIER, "elsewise");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "whiles");
+    expectToken(tokens[3], TokenType::IDENTIFIER, "forex");
+    expectToken(tokens[4], TokenType::IDENTIFIER, "defined");
+    expectToken(tokens[5], TokenType::IDENTIFIER, "returned");
+    expectToken(tokens[6], TokenType::END_OF_FILE);
 }

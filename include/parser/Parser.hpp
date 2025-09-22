@@ -18,6 +18,9 @@ class Parser {
         std::unique_ptr<Expression> parseExpression();
         std::unique_ptr<Expression> parseLogicalOr();
         std::unique_ptr<Expression> parseLogicalAnd();
+        std::unique_ptr<Expression> parseBitwiseOr();
+        std::unique_ptr<Expression> parseBitwiseXor();
+        std::unique_ptr<Expression> parseBitwiseAnd();
         std::unique_ptr<Expression> parseEquality();
         std::unique_ptr<Expression> parseComparison();
         std::unique_ptr<Expression> parseTerm();
