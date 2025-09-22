@@ -38,15 +38,30 @@ static const std::unordered_map<TokenType,
     }},
     {TokenType::EQUAL_EQUAL, {
         {TypedValue::Type::INT, OPCode::EQ_INT},
-        {TypedValue::Type::DOUBLE, OPCode::EQ_DOUBLE}
-    }},
-    {TokenType::LESS, {
-        {TypedValue::Type::INT, OPCode::LT_INT},
-        {TypedValue::Type::DOUBLE, OPCode::LT_DOUBLE}
+        {TypedValue::Type::DOUBLE, OPCode::EQ_DOUBLE},
+        {TypedValue::Type::FLOAT, OPCode::EQ_FLOAT},
+        {TypedValue::Type::BOOL, OPCode::EQ_BOOL},
+        {TypedValue::Type::STRING, OPCode::EQ_STRING}
     }},
     {TokenType::GREATER, {
         {TypedValue::Type::INT, OPCode::GT_INT},
-        {TypedValue::Type::DOUBLE, OPCode::GT_DOUBLE}
+        {TypedValue::Type::DOUBLE, OPCode::GT_DOUBLE},
+        {TypedValue::Type::FLOAT, OPCode::GT_FLOAT},
+    }},
+    {TokenType::LESS, {
+        {TypedValue::Type::INT, OPCode::LT_INT},
+        {TypedValue::Type::DOUBLE, OPCode::LT_DOUBLE},
+        {TypedValue::Type::FLOAT, OPCode::LT_FLOAT},
+    }},
+    {TokenType::GEQ, {
+        {TypedValue::Type::INT, OPCode::GEQ_INT},
+        {TypedValue::Type::DOUBLE, OPCode::GEQ_DOUBLE},
+        {TypedValue::Type::FLOAT, OPCode::GEQ_FLOAT},
+    }},
+    {TokenType::LEQ, {
+        {TypedValue::Type::INT, OPCode::LEQ_INT},
+        {TypedValue::Type::DOUBLE, OPCode::LEQ_DOUBLE},
+        {TypedValue::Type::FLOAT, OPCode::LEQ_FLOAT},
     }},
     {TokenType::BITWISE_AND, {
         {TypedValue::Type::INT, OPCode::BITWISE_AND_INT},

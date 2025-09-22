@@ -293,6 +293,18 @@ void VirtualMachine::run() {
                 pushBool(a > b);
                 break;
             }
+            case OPCode::GEQ_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushBool(a >= b);
+                break;
+            }
+            case OPCode::LEQ_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushBool(a <= b);
+                break;
+            }
 
             case OPCode::EQ_DOUBLE: {
                 double b = popDouble();
@@ -312,6 +324,62 @@ void VirtualMachine::run() {
                 pushBool(a > b);
                 break;
             }
+            case OPCode::GEQ_DOUBLE: {
+                double b = popDouble();
+                double a = popDouble();
+                pushBool(a >= b);
+                break;
+            }
+            case OPCode::LEQ_DOUBLE: {
+                double b = popDouble();
+                double a = popDouble();
+                pushBool(a <= b);
+                break;
+            }
+
+            case OPCode::EQ_FLOAT: {
+                float b = popFloat();
+                float a = popFloat();
+                pushBool(a == b);
+                break;
+            }
+            case OPCode::LT_FLOAT: {
+                float b = popFloat();
+                float a = popFloat();
+                pushBool(a < b);
+                break;
+            }
+            case OPCode::GT_FLOAT: {
+                float b = popFloat();
+                float a = popFloat();
+                pushBool(a > b);
+                break;
+            }
+            case OPCode::GEQ_FLOAT: {
+                float b = popFloat();
+                float a = popFloat();
+                pushBool(a >= b);
+                break;
+            }
+            case OPCode::LEQ_FLOAT: {
+                float b = popFloat();
+                float a = popFloat();
+                pushBool(a <= b);
+                break;
+            }
+            case OPCode::EQ_STRING: {
+                size_t b = popStringId();
+                size_t a = popStringId();
+                pushBool(a == b);
+                break;
+            }
+            case OPCode::EQ_BOOL: {
+                bool b = popBool();
+                bool a = popBool();
+                pushBool(a == b);
+                break;
+            }
+
 
             // Unary operations
             case OPCode::NEG_INT: {
@@ -425,9 +493,14 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::EQ_INT: return "EQ_INT";
         case OPCode::LT_INT: return "LT_INT";
         case OPCode::GT_INT: return "GT_INT";
+        case OPCode::GEQ_INT: return "GEQ_INT";
+        case OPCode::LEQ_INT: return "LEQ_INT";
         case OPCode::EQ_DOUBLE: return "EQ_DOUBLE";
         case OPCode::LT_DOUBLE: return "LT_DOUBLE";
         case OPCode::GT_DOUBLE: return "GT_DOUBLE";
+        case OPCode::LEQ_DOUBLE: return "LEQ_DOUBLE";
+        case OPCode::GEQ_DOUBLE: return "GEQ_DOUBLE";
+        case OPCode::EQ_BOOL: return "EQ_BOOL";
 
         case OPCode::JUMP: return "JUMP";
         case OPCode::JUMP_IF_FALSE: return "JUMP_IF_FALSE";

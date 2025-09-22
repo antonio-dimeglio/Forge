@@ -1,5 +1,6 @@
 #pragma once 
-
+// TODO: Unimplemented OPs
+// ADD_STRING
 enum class OPCode {
     // Type-specific arithmetic
     ADD_INT, ADD_FLOAT, ADD_DOUBLE, ADD_STRING,
@@ -21,7 +22,11 @@ enum class OPCode {
     INT_TO_DOUBLE, FLOAT_TO_DOUBLE,
 
     // Comparisons (return bool)
-    EQ_INT, EQ_DOUBLE, LT_INT, LT_DOUBLE, GT_INT, GT_DOUBLE,
+    EQ_INT, EQ_DOUBLE, EQ_FLOAT, EQ_BOOL, EQ_STRING,
+    LT_INT, LT_DOUBLE, LT_FLOAT,
+    GT_INT, GT_DOUBLE, GT_FLOAT,
+    GEQ_INT, GEQ_DOUBLE, GEQ_FLOAT, 
+    LEQ_INT, LEQ_DOUBLE, LEQ_FLOAT,
 
     // Control flow
     JUMP_IF_FALSE, JUMP,
