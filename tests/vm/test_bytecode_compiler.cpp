@@ -2,6 +2,7 @@
 #include <limits>
 #include <cmath>
 #include "../../include/backends/vm/BytecodeCompiler.hpp"
+#include "../../include/backends/vm/VirtualMachine.hpp"
 #include "../../include/parser/Expression.hpp"
 #include "../../include/parser/Statement.hpp"
 #include "../../include/lexer/Token.hpp"
@@ -9,7 +10,10 @@
 
 class BytecodeCompilerTest : public ::testing::Test {
 protected:
+    VirtualMachine vm;
     BytecodeCompiler compiler;
+
+    BytecodeCompilerTest() : compiler(vm) {}
 
     void SetUp() override {}
     void TearDown() override {}
@@ -82,7 +86,6 @@ TEST_F(BytecodeCompilerTest, CompileIntLiteral) {
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::INT);
     EXPECT_EQ(program.constants[0].value.i, 42);
-    EXPECT_TRUE(program.strings.empty());
 }
 
 TEST_F(BytecodeCompilerTest, CompileFloatLiteral) {
@@ -96,7 +99,6 @@ TEST_F(BytecodeCompilerTest, CompileFloatLiteral) {
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::FLOAT);
     EXPECT_FLOAT_EQ(program.constants[0].value.f, 3.14f);
-    EXPECT_TRUE(program.strings.empty());
 }
 
 TEST_F(BytecodeCompilerTest, CompileDoubleLiteral) {
@@ -110,7 +112,6 @@ TEST_F(BytecodeCompilerTest, CompileDoubleLiteral) {
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::DOUBLE);
     EXPECT_DOUBLE_EQ(program.constants[0].value.d, 2.718);
-    EXPECT_TRUE(program.strings.empty());
 }
 
 TEST_F(BytecodeCompilerTest, CompileBoolLiteralTrue) {
@@ -124,7 +125,6 @@ TEST_F(BytecodeCompilerTest, CompileBoolLiteralTrue) {
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::BOOL);
     EXPECT_EQ(program.constants[0].value.b, true);
-    EXPECT_TRUE(program.strings.empty());
 }
 
 TEST_F(BytecodeCompilerTest, CompileBoolLiteralFalse) {
@@ -138,7 +138,6 @@ TEST_F(BytecodeCompilerTest, CompileBoolLiteralFalse) {
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::BOOL);
     EXPECT_EQ(program.constants[0].value.b, false);
-    EXPECT_TRUE(program.strings.empty());
 }
 
 TEST_F(BytecodeCompilerTest, CompileStringLiteral) {
@@ -147,11 +146,12 @@ TEST_F(BytecodeCompilerTest, CompileStringLiteral) {
 
     ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
-    EXPECT_EQ(program.instructions[0].operand, 0);  // Index in string pool
+    EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
     EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
-    EXPECT_TRUE(program.constants.empty());
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], "hello");
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    // String is interned in VM, constant contains string ID
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "hello");
 }
 
 TEST_F(BytecodeCompilerTest, CompileMultipleStringLiterals) {
@@ -161,9 +161,11 @@ TEST_F(BytecodeCompilerTest, CompileMultipleStringLiterals) {
 
     auto program = compiler.compile(wrapInProgram(std::move(binary)));
 
-    EXPECT_EQ(program.strings.size(), 2);
-    EXPECT_EQ(program.strings[0], "first");
-    EXPECT_EQ(program.strings[1], "second");
+    EXPECT_EQ(program.constants.size(), 2);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(program.constants[1].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "first");
+    EXPECT_EQ(vm.getString(program.constants[1].value.string_id), "second");
 }
 
 // ============================================================================
@@ -476,8 +478,9 @@ TEST_F(BytecodeCompilerTest, CompileEmptyString) {
     ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], "");
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "");
 }
 
 TEST_F(BytecodeCompilerTest, CompileLongString) {
@@ -488,8 +491,9 @@ TEST_F(BytecodeCompilerTest, CompileLongString) {
     ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], longStr);
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), longStr);
 }
 
 // ============================================================================
@@ -537,7 +541,6 @@ TEST_F(BytecodeCompilerTest, CompileMultipleBinaryOperations) {
     // Verify we get the right number of instructions and opcodes
     EXPECT_GT(program.instructions.size(), 5);
     EXPECT_EQ(program.constants.size(), 5);  // Should have 5 constants (1,2,3,4,5)
-    EXPECT_TRUE(program.strings.empty());
 }
 
 // ============================================================================
@@ -630,8 +633,9 @@ TEST_F(BytecodeCompilerTest, CompileStringWithSpecialCharacters) {
     ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     EXPECT_EQ(program.instructions[0].operand, 0);
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], "Hello\nWorld\t\"Quote\"\\Backslash");
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "Hello\nWorld\t\"Quote\"\\Backslash");
 }
 
 TEST_F(BytecodeCompilerTest, CompileStringWithUnicodeCharacters) {
@@ -640,21 +644,25 @@ TEST_F(BytecodeCompilerTest, CompileStringWithUnicodeCharacters) {
 
     ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], "🚀 Hello 世界 🌍");
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "🚀 Hello 世界 🌍");
 }
 
 TEST_F(BytecodeCompilerTest, CompileMultipleIdenticalStrings) {
-    // Test string deduplication (multiple "hello" should reuse same index)
+    // Test string deduplication (multiple "hello" should reuse same string ID)
     auto str1 = makeLiteral(makeStringToken("hello"));
     auto str2 = makeLiteral(makeStringToken("hello"));
     auto expr = makeBinary(std::move(str1), makeOperatorToken(TokenType::PLUS), std::move(str2));
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    EXPECT_EQ(program.strings.size(), 2);  // Without deduplication, should have 2
-    EXPECT_EQ(program.strings[0], "hello");
-    EXPECT_EQ(program.strings[1], "hello");
+    EXPECT_EQ(program.constants.size(), 2);  // Two constants in constant pool
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(program.constants[1].type, TypedValue::Type::STRING);
+    // Due to string interning, both should have the same string ID
+    EXPECT_EQ(program.constants[0].value.string_id, program.constants[1].value.string_id);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "hello");
 }
 
 TEST_F(BytecodeCompilerTest, CompileLeftAssociativeOperations) {
@@ -751,8 +759,6 @@ TEST_F(BytecodeCompilerTest, CompileProgramStateReset) {
     ASSERT_EQ(program2.constants.size(), 1);
     EXPECT_EQ(program1.constants[0].value.i, 42);
     EXPECT_EQ(program2.constants[0].value.i, 24);
-    EXPECT_TRUE(program1.strings.empty());
-    EXPECT_TRUE(program2.strings.empty());
 }
 
 // ============================================================================

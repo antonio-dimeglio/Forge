@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #include "Instruction.hpp"
 #include <vector>
 #include <unordered_map>
@@ -7,18 +7,20 @@
 #include "../../lexer/Token.hpp"
 #include "RuntimeException.hpp"
 
+class VirtualMachine;
+
 class BytecodeCompiler {
     public:
         struct CompiledProgram {
             std::vector<Instruction> instructions;
             std::vector<TypedValue> constants;
-            std::vector<std::string> strings;
         };
         struct VariableInfo {
             int slot;
             TypedValue::Type type;
         };
 
+        explicit BytecodeCompiler(VirtualMachine& vm);
         CompiledProgram compile(std::unique_ptr<Statement> ast);
         TypedValue::Type compileExpression(const Expression& node);
         TypedValue::Type compileLiteral(const LiteralExpression& node);
@@ -33,11 +35,11 @@ class BytecodeCompiler {
         void compileProgram(const Program& node);
 
     private:
+        VirtualMachine& vm;
         std::vector<Instruction> instructions;
         std::vector<TypedValue> constants;
-        std::vector<std::string> tempStringPool;
         TypedValue::Type currentExpressionType;
-        std::unordered_map<std::string, VariableInfo> symbolTable; 
+        std::unordered_map<std::string, VariableInfo> symbolTable;
         int nextSlot = 0;
 
         TypedValue inferType(const Token& token);

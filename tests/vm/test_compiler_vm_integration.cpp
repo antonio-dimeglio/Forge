@@ -9,8 +9,10 @@
 
 class CompilerVMIntegrationTest : public ::testing::Test {
 protected:
-    BytecodeCompiler compiler;
     VirtualMachine vm;
+    BytecodeCompiler compiler;
+
+    CompilerVMIntegrationTest() : compiler(vm) {}
 
     void SetUp() override {}
     void TearDown() override {}
@@ -70,7 +72,7 @@ protected:
     // Helper to compile and load program into VM
     void compileAndLoad(std::unique_ptr<Expression> expr) {
         auto program = compiler.compile(wrapInProgram(std::move(expr)));
-        vm.loadProgram(program.instructions, program.constants, program.strings);
+        vm.loadProgram(program.instructions, program.constants);
     }
 };
 
@@ -349,7 +351,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfStatementTrue) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // x should be 42 because condition was true
@@ -365,7 +367,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfStatementFalse) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // x should still be 99 because condition was false
@@ -381,7 +383,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfElseStatementTrue) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // x should be 1 (if branch)
@@ -397,7 +399,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfElseStatementFalse) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // x should be 2 (else branch)
@@ -413,7 +415,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfWithComplexCondition) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // result should be 1 because 10 > 5 is true
@@ -436,7 +438,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteNestedIfStatements) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // result should be 42 because both conditions are true
@@ -461,7 +463,7 @@ TEST_F(CompilerVMIntegrationTest, ExecuteIfElseWithMultipleStatements) {
     auto ast = parser.parseProgram();
 
     auto program = compiler.compile(std::move(ast));
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     // Should execute if branch

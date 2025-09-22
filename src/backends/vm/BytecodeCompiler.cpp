@@ -2,6 +2,8 @@
 #include "../../../include/backends/vm/BytecodeCompiler.hpp"
 #include <iostream>
 
+BytecodeCompiler::BytecodeCompiler(VirtualMachine& vm) : vm(vm) {}
+
 static const std::unordered_map<TokenType, TypedValue::Type> typeTable = {
     {TokenType::INT, TypedValue::Type::INT},
     {TokenType::FLOAT, TypedValue::Type::FLOAT},
@@ -141,10 +143,10 @@ TypedValue BytecodeCompiler::inferType(const Token& token){
                 return val;
             }
             case TypedValue::Type::STRING: {
-                tempStringPool.push_back(token.getValue());
+                size_t stringId = vm.internString(token.getValue());
                 TypedValue val;
                 val.type = type;
-                val.value.string_id = tempStringPool.size() - 1;
+                val.value.string_id = stringId;
                 return val;
             }
         };
@@ -158,15 +160,13 @@ TypedValue BytecodeCompiler::inferType(const Token& token){
 BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Statement> ast) {
     instructions.clear();
     constants.clear();
-    tempStringPool.clear();
     nextSlot = 0;
 
     ast->accept(*this);
     emit(OPCode::HALT, -1);
     return CompiledProgram {
         .instructions = instructions,
-        .constants = constants,
-        .strings  = tempStringPool
+        .constants = constants
     };
 }
 
@@ -213,10 +213,11 @@ TypedValue::Type BytecodeCompiler::compileLiteral(const LiteralExpression& node)
             emit(OPCode::LOAD_BOOL, constantIndex);
             break;
         }
-        case TypedValue::Type::STRING:
-            // Strings use string pool directly, not constants pool
-            emit(OPCode::LOAD_STRING, value.value.string_id);
+        case TypedValue::Type::STRING: {
+            int constantIndex = addConstant(value);
+            emit(OPCode::LOAD_STRING, constantIndex);
             break;
+        }
     }
     currentExpressionType = value.type;
     return value.type;

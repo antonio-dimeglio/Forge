@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "../../include/backends/vm/BytecodeCompiler.hpp"
+#include "../../include/backends/vm/VirtualMachine.hpp"
 #include "../../include/parser/Parser.hpp"
 #include "../../include/parser/Statement.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
@@ -7,7 +8,10 @@
 
 class BytecodeCompilerStatementTest : public ::testing::Test {
 protected:
+    VirtualMachine vm;
     BytecodeCompiler compiler;
+
+    BytecodeCompilerStatementTest() : compiler(vm) {}
 
     void SetUp() override {
         // Reset compiler state for each test
@@ -118,9 +122,10 @@ TEST_F(BytecodeCompilerStatementTest, CompileStringDeclaration) {
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
     expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
-    // Check string was added to string pool
-    ASSERT_EQ(program.strings.size(), 1);
-    EXPECT_EQ(program.strings[0], "hello");
+    // Check string was added to constants pool
+    ASSERT_EQ(program.constants.size(), 1);
+    EXPECT_EQ(program.constants[0].type, TypedValue::Type::STRING);
+    EXPECT_EQ(vm.getString(program.constants[0].value.string_id), "hello");
 }
 
 TEST_F(BytecodeCompilerStatementTest, CompileMultipleDeclarations) {
@@ -414,7 +419,6 @@ TEST_F(BytecodeCompilerStatementTest, EmptyProgram) {
     // Empty program should generate no instructions except for halt
     EXPECT_EQ(program.instructions.size(), 1);
     EXPECT_EQ(program.constants.size(), 0);
-    EXPECT_EQ(program.strings.size(), 0);
 }
 
 TEST_F(BytecodeCompilerStatementTest, OnlyNewlines) {

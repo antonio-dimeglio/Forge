@@ -34,9 +34,6 @@ class VirtualMachine {
     public:
         void loadProgram(const std::vector<Instruction>& instructions,
                        const std::vector<TypedValue>& constants);
-        void loadProgram(const std::vector<Instruction>& instructions,
-                       const std::vector<TypedValue>& constants,
-                       const std::vector<std::string>& strings);
         void run();
         void dumpStack();
         void printInstructions();

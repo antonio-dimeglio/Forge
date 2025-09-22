@@ -139,8 +139,8 @@ int main(int argc, char** argv) {
         std::cout << ast->toString() << "\n";
     }
 
-    // Compile AST to bytecode
-    BytecodeCompiler compiler;
+    VirtualMachine vm;
+    BytecodeCompiler compiler(vm);
     auto program = compiler.compile(std::move(ast));
 
     if (dump_bytecode) {
@@ -172,23 +172,27 @@ int main(int argc, char** argv) {
                         std::cout << "BOOL    " << (constant.value.b ? "true" : "false");
                         break;
                     case TypedValue::Type::STRING:
-                        std::cout << "STRING  (id:" << constant.value.string_id << ")";
+                        std::cout << "STRING  (id:" << constant.value.string_id << ") \""
+                                 << vm.getString(constant.value.string_id) << "\"";
                         break;
                 }
                 std::cout << "\n";
             }
         }
 
-        if (!program.strings.empty()) {
-            std::cout << "\nString Pool:\n";
-            for (size_t i = 0; i < program.strings.size(); ++i) {
-                std::cout << std::setw(4) << i << ": \"" << program.strings[i] << "\"\n";
+        // Show string table from VM
+        std::cout << "\nString Pool:\n";
+        for (size_t i = 0; i < 100; ++i) {  // Check first 100 string IDs
+            try {
+                std::string str = vm.getString(i);
+                std::cout << std::setw(4) << i << ": \"" << str << "\"\n";
+            } catch (...) {
+                break;  // Stop when we hit an invalid string ID
             }
         }
     }
 
-    VirtualMachine vm;
-    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     if (dump_vm_state) {

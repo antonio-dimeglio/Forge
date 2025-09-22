@@ -209,6 +209,14 @@ void VirtualMachine::run() {
                 pushDouble(a + b);
                 break;
             }
+            case OPCode::ADD_STRING: {
+                size_t b = popStringId();
+                size_t a = popStringId();
+                std::string concatenated = getString(a) + getString(b);
+                size_t resultId = internString(concatenated);
+                pushStringId(resultId);
+                break;
+            }
             case OPCode::SUB_DOUBLE: {
                 double b = popDouble();
                 double a = popDouble();
@@ -426,28 +434,11 @@ std::to_string(static_cast<int>(inst.opcode)));
 
 void VirtualMachine::loadProgram(const std::vector<Instruction>& instructions,
                                 const std::vector<TypedValue>& constants) {
-    loadProgram(instructions, constants, {});
-}
-
-void VirtualMachine::loadProgram(const std::vector<Instruction>& instructions,
-                                const std::vector<TypedValue>& constants,
-                                const std::vector<std::string>& strings) {
     this->instructions = instructions;
     this->constants = constants;
     ip = 0;
     stack.clear();
-
-    // Only clear string table if we have strings to intern (new BytecodeCompiler path)
-    // Legacy tests pre-intern strings and expect them to remain
-    if (!strings.empty()) {
-        stringTable.clear();
-        stringCache.clear();
-
-        // Intern all strings from the compiler
-        for (const auto& str : strings) {
-            internString(str);
-        }
-    }
+    locals.clear();
 }
 
 void VirtualMachine::dumpStack() {
@@ -486,7 +477,8 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::SUB_DOUBLE: return "SUB_DOUBLE";
         case OPCode::MULT_DOUBLE: return "MULT_DOUBLE";
         case OPCode::DIV_DOUBLE: return "DIV_DOUBLE";
-
+        
+        case OPCode::ADD_STRING: return "ADD_STRING";
         case OPCode::INT_TO_DOUBLE: return "INT_TO_DOUBLE";
         case OPCode::FLOAT_TO_DOUBLE: return "FLOAT_TO_DOUBLE";
 
@@ -501,6 +493,7 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::LEQ_DOUBLE: return "LEQ_DOUBLE";
         case OPCode::GEQ_DOUBLE: return "GEQ_DOUBLE";
         case OPCode::EQ_BOOL: return "EQ_BOOL";
+        case OPCode::EQ_STRING: return "EQ_STRING";
 
         case OPCode::JUMP: return "JUMP";
         case OPCode::JUMP_IF_FALSE: return "JUMP_IF_FALSE";
