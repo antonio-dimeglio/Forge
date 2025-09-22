@@ -57,13 +57,19 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     if (currentType == TokenType::WHILE) {
         return parseWhileStatement();
     }
+    if (currentType == TokenType::DEF) {
+        return parseFunctionDefinition();
+    }
+    if (currentType == TokenType::RETURN) {
+        return parseReturnStatement();
+    }
     if (currentType == TokenType::IDENTIFIER) {
         if (nextType == TokenType::COLON) {
             return parseVariableDeclaration();
         }
         if (nextType == TokenType::ASSIGN) {
             return parseAssignment();
-        }
+        } // Here function call should go
         if (nextType == TokenType::NUMBER || nextType == TokenType::IDENTIFIER) {
             Token next = peek();
             throw ParsingException("Unexpected token after identifier. Did you mean to use '=' for assignment or ':' for declaration?", next.getLine(), next.getColumn());
@@ -254,12 +260,32 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             {
                 Token identifier = advance();
                 if (current().getType() == TokenType::LPAREN) {
-                    advance();
+                    advance(); 
+
+                    std::vector<std::unique_ptr<Expression>> arguments;
+
+                    if (current().getType() != TokenType::RPAREN) {
+                        while (true) {
+                            auto arg = parseExpression();
+                            arguments.push_back(std::move(arg));
+                           
+                            if (current().getType() == TokenType::COMMA) {
+                                advance();
+                                continue;
+                            } else if (current().getType() == TokenType::RPAREN) {
+                                break; 
+                            } else {
+                                throw ParsingException("Expected ',' or ')' in function call", current().getLine(), current().getColumn());
+                            }
+                        }
+                    }
+
                     if (current().getType() != TokenType::RPAREN) {
                         throw ParsingException("Expected )", current().getLine(), current().getColumn());
                     }
-                    advance();
-                    return std::make_unique<FunctionCall>(identifier.getValue());
+                    advance(); 
+
+                    return std::make_unique<FunctionCall>(identifier.getValue(), std::move(arguments));
                 } else {
                     return std::make_unique<IdentifierExpression>(identifier.getValue());
                 }
@@ -421,6 +447,111 @@ std::unique_ptr<Statement> Parser::parseWhileStatement() {
         std::move(expression),
         std::move(body)
     );
+}
+
+std::unique_ptr<Statement> Parser::parseReturnStatement() {
+    Token t(TokenType::END_OF_FILE, -1, -1);
+    if ((t = advance()).getType() != TokenType::RETURN) {
+        throw ParsingException("Expected return", t.getLine(), t.getColumn());
+    }
+
+    auto value = parseExpression();
+
+    return std::make_unique<ReturnStatement>(
+        std::move(value)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
+    // TODO: REfactor multiple switch statements to check if token is a type.
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if ((t = advance()).getType() != TokenType::DEF) {
+        throw ParsingException("Expected def", t.getLine(), t.getColumn());
+    }
+
+    Token functionName = advance();
+    if (functionName.getType() != TokenType::IDENTIFIER) {
+        throw ParsingException("Expected variable", functionName.getLine(), functionName.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::LPAREN) {
+        throw ParsingException("Expected (", t.getLine(), t.getColumn());
+    }
+
+    std::vector<StatementParameter> params;
+
+    
+    if (current().getType() != TokenType::RPAREN) {
+        while (true) {
+            Token name = advance();
+            if (name.getType() != TokenType::IDENTIFIER) {
+                throw ParsingException("Expected parameter name", name.getLine(), name.getColumn());
+            }
+
+            if ((t = advance()).getType() != TokenType::COLON) {
+                throw ParsingException("Expected :", t.getLine(), t.getColumn());
+            }
+
+            Token type = advance();
+            switch (type.getType()) {
+                case TokenType::INT:
+                case TokenType::FLOAT:
+                case TokenType::BOOL:
+                case TokenType::STR:
+                case TokenType::DOUBLE:
+                    break;
+                default:
+                    throw ParsingException("Expected type", type.getLine(), type.getColumn());
+            }
+
+            params.push_back(StatementParameter {
+                .name = name,
+                .type = type
+            });
+
+            
+            if (current().getType() == TokenType::COMMA) {
+                advance(); 
+                continue; 
+            } else if (current().getType() == TokenType::RPAREN) {
+                break;
+            } else {
+                throw ParsingException("Expected ',' or ')'", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    
+    if ((t = advance()).getType() != TokenType::RPAREN) {
+        throw ParsingException("Expected )", t.getLine(), t.getColumn());
+    }
+
+    if ((t = advance()).getType() != TokenType::ARROW) {
+        throw ParsingException("Expected ->", t.getLine(), t.getColumn());
+    }
+
+    Token functionReturnType = advance();
+
+    switch (functionReturnType.getType()) {
+        case TokenType::INT:
+        case TokenType::FLOAT:
+        case TokenType::BOOL:
+        case TokenType::STR:
+        case TokenType::DOUBLE:
+            break;
+        default:
+            throw ParsingException("Expected type", functionReturnType.getLine(), functionReturnType.getColumn());
+    }
+
+    auto body = parseBlockStatement();
+
+    return std::make_unique<FunctionDefinition>(
+            functionName,
+            functionReturnType,
+            params,
+            std::move(body)
+        );
 }
 
 std::unique_ptr<Statement> Parser::parseProgram() {

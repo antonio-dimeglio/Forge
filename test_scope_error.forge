@@ -1,5 +1,0 @@
-x: int = 10
-if (x == 10) {
-    y: int = 20
-}
-z: int = y  // This should fail - y is not accessible outside the block

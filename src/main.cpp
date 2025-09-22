@@ -139,6 +139,11 @@ int main(int argc, char** argv) {
         std::cout << ast->toString() << "\n";
     }
 
+    if (lexer_only || parser_only) {
+        std::cout << "Stopping after parsing as requested.\n";
+        return 0;
+    }
+
     VirtualMachine vm;
     BytecodeCompiler compiler(vm);
     auto program = compiler.compile(std::move(ast));
@@ -159,45 +164,34 @@ int main(int argc, char** argv) {
                 const auto& constant = program.constants[i];
                 std::cout << std::setw(4) << i << ": ";
                 switch (constant.type) {
-                    case TypedValue::Type::INT:
-                        std::cout << "INT     " << constant.value.i;
+                    case ValueType::INT:
+                        std::cout << "INT     " << asInt(constant);
                         break;
-                    case TypedValue::Type::FLOAT:
-                        std::cout << "FLOAT   " << constant.value.f;
+                    case ValueType::FLOAT:
+                        std::cout << "FLOAT   " << asFloat(constant);
                         break;
-                    case TypedValue::Type::DOUBLE:
-                        std::cout << "DOUBLE  " << constant.value.d;
+                    case ValueType::DOUBLE:
+                        std::cout << "DOUBLE  " << asDouble(constant);
                         break;
-                    case TypedValue::Type::BOOL:
-                        std::cout << "BOOL    " << (constant.value.b ? "true" : "false");
+                    case ValueType::BOOL:
+                        std::cout << "BOOL    " << (asBool(constant) ? "true" : "false");
                         break;
-                    case TypedValue::Type::STRING:
-                        std::cout << "STRING  (id:" << constant.value.string_id << ") \""
-                                 << vm.getString(constant.value.string_id) << "\"";
+                    case ValueType::OBJECT:
+                        std::cout << "OBJECT  " << valueToString(constant);
                         break;
                 }
                 std::cout << "\n";
             }
         }
-
-        // Show string table from VM
-        std::cout << "\nString Pool:\n";
-        for (size_t i = 0; i < 100; ++i) {  // Check first 100 string IDs
-            try {
-                std::string str = vm.getString(i);
-                std::cout << std::setw(4) << i << ": \"" << str << "\"\n";
-            } catch (...) {
-                break;  // Stop when we hit an invalid string ID
-            }
-        }
     }
 
+    
     vm.loadProgram(program.instructions, program.constants);
     vm.run();
 
     if (dump_vm_state) {
         std::cout << "\n=== VM STATE ===\n";
-        vm.dumpStack();    
+        vm.dumpStack();
     }
 
 

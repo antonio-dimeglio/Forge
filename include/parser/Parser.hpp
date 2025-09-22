@@ -34,6 +34,8 @@ class Parser {
         std::unique_ptr<Statement> parseAssignment();
         std::unique_ptr<Statement> parseIfStatement();
         std::unique_ptr<Statement> parseWhileStatement();
+        std::unique_ptr<Statement> parseFunctionDefinition();
+        std::unique_ptr<Statement> parseReturnStatement();
         std::unique_ptr<BlockStatement> parseBlockStatement();
 
         void skipNewLines();

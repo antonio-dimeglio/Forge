@@ -1,6 +1,0 @@
-x: int = 10
-if (x == 10) {
-    y: int = 20
-    x = y + 5
-}
-// y should not be accessible here since it's in the if block scope

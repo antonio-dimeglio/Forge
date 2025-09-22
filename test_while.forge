@@ -1,5 +1,0 @@
-x: int = 1
-while (x < 5) {
-    x = x + 1
-}
-// x should be 5 after the loop

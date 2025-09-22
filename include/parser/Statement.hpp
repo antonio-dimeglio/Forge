@@ -14,6 +14,17 @@ class Statement {
         virtual std::string toString(int indent = 0) const = 0;
 };
 
+class Program : public Statement {
+    public:
+        std::vector<std::unique_ptr<Statement>> statements;
+
+        Program(std::vector<std::unique_ptr<Statement>> statements)
+            : statements(std::move(statements)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+
 class ExpressionStatement : public Statement {
     public:
         std::unique_ptr<Expression> expression;
@@ -92,13 +103,34 @@ class WhileStatement: public Statement {
         std::string toString(int indent = 0) const override;
 };
 
+struct StatementParameter {
+    Token name;
+    Token type; 
+};
 
-class Program : public Statement {
+class FunctionDefinition : public Statement {
     public:
-        std::vector<std::unique_ptr<Statement>> statements;
+        Token functionName;
+        Token functionReturnType;
+        std::vector<StatementParameter> parameters;
+        std::unique_ptr<BlockStatement> body;
+        FunctionDefinition(
+            Token functionName, Token functionReturnType,
+            std::vector<StatementParameter> parameters,
+            std::unique_ptr<BlockStatement> body
+        ) : functionName(functionName), functionReturnType(functionReturnType),
+            parameters(parameters), body(std::move(body)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
 
-        Program(std::vector<std::unique_ptr<Statement>> statements)
-            : statements(std::move(statements)) {}
+class ReturnStatement : public Statement {
+    public:
+        std::unique_ptr<Expression> returnValue;
+        
+        ReturnStatement(
+            std::unique_ptr<Expression> returnValue
+        ) : returnValue(std::move(returnValue)) {};
         void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };

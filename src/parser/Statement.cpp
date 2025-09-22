@@ -74,6 +74,35 @@ std::string WhileStatement::toString(int indent) const {
     return ss.str();
 }
 
+void FunctionDefinition::accept(BytecodeCompiler& compiler) const {
+    compiler.compileFunctionDefinition(*this);
+}
+
+std::string FunctionDefinition::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "FunctionDefinition: " << functionName.getValue() << "\n";
+    ss << indentStr << "  ReturnType: " << functionReturnType.getValue() << "\n";
+    ss << indentStr << "  Parameters:\n";
+    for (const auto& param : parameters) {
+        ss << indentStr << "    " << param.name.getValue() << ": " << param.type.getValue() << "\n";
+    }
+    ss << indentStr << "  Body:\n" << body->toString(indent + 2) << "\n";
+    return ss.str();
+}
+
+void ReturnStatement::accept(BytecodeCompiler& compiler) const {
+    compiler.compileReturnStatement(*this);
+}
+
+std::string ReturnStatement::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "ReturnStatement:\n";
+    ss << indentStr << "  Value:" << returnValue->toString(indent + 2) << "\n";
+    return ss.str();
+}
+
 
 void ExpressionStatement::accept(BytecodeCompiler& compiler) const {
     expression->accept(compiler);

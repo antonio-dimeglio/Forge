@@ -31,6 +31,9 @@ enum class OPCode {
     // Control flow
     JUMP_IF_FALSE, JUMP,
 
+    // Function calls
+    CALL, RETURN,
+
     HALT
 };
 
