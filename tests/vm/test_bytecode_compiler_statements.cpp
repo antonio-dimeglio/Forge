@@ -63,10 +63,11 @@ protected:
 TEST_F(BytecodeCompilerStatementTest, CompileSimpleIntDeclaration) {
     auto program = compileStatement("x: int = 42");
 
-    // Should generate: LOAD_INT 0, STORE_LOCAL 0
-    ASSERT_EQ(program.instructions.size(), 2);
+    // Should generate: LOAD_INT 0, STORE_LOCAL 0, HALT
+    ASSERT_EQ(program.instructions.size(), 3);
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
     // Check constant pool
     ASSERT_EQ(program.constants.size(), 1);
@@ -76,9 +77,10 @@ TEST_F(BytecodeCompilerStatementTest, CompileSimpleIntDeclaration) {
 TEST_F(BytecodeCompilerStatementTest, CompileFloatDeclaration) {
     auto program = compileStatement("y: float = 3.14");
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_DOUBLE + STORE_LOCAL + HALT
     expectInstruction(program.instructions, 0, OPCode::LOAD_DOUBLE, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
     ASSERT_EQ(program.constants.size(), 1);
     expectConstant(program.constants, 0, TypedValue::Type::DOUBLE, "3.14");
@@ -87,9 +89,10 @@ TEST_F(BytecodeCompilerStatementTest, CompileFloatDeclaration) {
 TEST_F(BytecodeCompilerStatementTest, CompileDoubleDeclaration) {
     auto program = compileStatement("z: double = 2.718");
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_DOUBLE + STORE_LOCAL + HALT
     expectInstruction(program.instructions, 0, OPCode::LOAD_DOUBLE, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
     ASSERT_EQ(program.constants.size(), 1);
     expectConstant(program.constants, 0, TypedValue::Type::DOUBLE, "2.718");
@@ -98,9 +101,10 @@ TEST_F(BytecodeCompilerStatementTest, CompileDoubleDeclaration) {
 TEST_F(BytecodeCompilerStatementTest, CompileBoolDeclaration) {
     auto program = compileStatement("flag: bool = true");
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_BOOL + STORE_LOCAL + HALT
     expectInstruction(program.instructions, 0, OPCode::LOAD_BOOL, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
     ASSERT_EQ(program.constants.size(), 1);
     expectConstant(program.constants, 0, TypedValue::Type::BOOL, "true");
@@ -109,9 +113,10 @@ TEST_F(BytecodeCompilerStatementTest, CompileBoolDeclaration) {
 TEST_F(BytecodeCompilerStatementTest, CompileStringDeclaration) {
     auto program = compileStatement("name: str = \"hello\"");
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_STRING + STORE_LOCAL + HALT
     expectInstruction(program.instructions, 0, OPCode::LOAD_STRING, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 
     // Check string was added to string pool
     ASSERT_EQ(program.strings.size(), 1);
@@ -122,7 +127,7 @@ TEST_F(BytecodeCompilerStatementTest, CompileMultipleDeclarations) {
     auto program = compileStatement("x: int = 10\ny: int = 20");
 
     // Should generate instructions for both declarations
-    ASSERT_EQ(program.instructions.size(), 4);
+    ASSERT_EQ(program.instructions.size(), 5);
 
     // First declaration: x = 10
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);
@@ -141,8 +146,8 @@ TEST_F(BytecodeCompilerStatementTest, CompileMultipleDeclarations) {
 TEST_F(BytecodeCompilerStatementTest, CompileDeclarationWithComplexExpression) {
     auto program = compileStatement("result: int = 2 + 3 * 4");
 
-    // Should generate: LOAD_INT 0, LOAD_INT 1, LOAD_INT 2, MULT_INT, ADD_INT, STORE_LOCAL 0
-    ASSERT_EQ(program.instructions.size(), 6);
+    // Should generate: LOAD_INT 0, LOAD_INT 1, LOAD_INT 2, MULT_INT, ADD_INT, STORE_LOCAL 0, HALT
+    ASSERT_EQ(program.instructions.size(), 7);
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);  // 2
     expectInstruction(program.instructions, 1, OPCode::LOAD_INT, 1);  // 3
     expectInstruction(program.instructions, 2, OPCode::LOAD_INT, 2);  // 4
@@ -162,13 +167,14 @@ TEST_F(BytecodeCompilerStatementTest, CompileSimpleAssignment) {
     // Need to declare variable first, then assign
     auto program = compileStatement("x: int = 0\nx = 42");
 
-    // Should have declaration + assignment instructions
-    ASSERT_GE(program.instructions.size(), 4);
+    // Should have declaration + assignment instructions + halt
+    ASSERT_GE(program.instructions.size(), 5);
 
-    // Last two instructions should be assignment: LOAD_INT, STORE_LOCAL 0
-    size_t lastInst = program.instructions.size() - 1;
-    expectInstruction(program.instructions, lastInst - 1, OPCode::LOAD_INT, 1); // Constant index 1 for value 42
-    expectInstruction(program.instructions, lastInst, OPCode::STORE_LOCAL, 0);
+    // Last three instructions should be: LOAD_INT, STORE_LOCAL, HALT
+    size_t size = program.instructions.size();
+    expectInstruction(program.instructions, size - 3, OPCode::LOAD_INT, 1); // Constant index 1 for value 42
+    expectInstruction(program.instructions, size - 2, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, size - 1, OPCode::HALT, -1);
 }
 
 TEST_F(BytecodeCompilerStatementTest, CompileAssignmentToUndeclaredVariable) {
@@ -180,14 +186,15 @@ TEST_F(BytecodeCompilerStatementTest, CompileAssignmentWithExpression) {
     auto program = compileStatement("x: int = 0\nx = 10 + 5");
 
     // Check that assignment uses expression compilation
-    ASSERT_GE(program.instructions.size(), 5);
+    ASSERT_GE(program.instructions.size(), 6);
 
     // Should have LOAD, LOAD, ADD, STORE pattern at the end
     size_t end = program.instructions.size();
-    expectInstruction(program.instructions, end - 4, OPCode::LOAD_INT, 1);  // 10 (constant index 1)
-    expectInstruction(program.instructions, end - 3, OPCode::LOAD_INT, 2);  // 5 (constant index 2)
-    expectInstruction(program.instructions, end - 2, OPCode::ADD_INT);
-    expectInstruction(program.instructions, end - 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, end - 5, OPCode::LOAD_INT, 1);  // 10 (constant index 1)
+    expectInstruction(program.instructions, end - 4, OPCode::LOAD_INT, 2);  // 5 (constant index 2)
+    expectInstruction(program.instructions, end - 3, OPCode::ADD_INT);
+    expectInstruction(program.instructions, end - 2, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, end - 1, OPCode::HALT, -1);
 }
 
 // ===== VARIABLE USAGE COMPILATION TESTS =====
@@ -196,7 +203,7 @@ TEST_F(BytecodeCompilerStatementTest, CompileVariableUsage) {
     auto program = compileStatement("x: int = 10\ny: int = x");
 
     // Should have: declare x, then load x and store to y
-    ASSERT_EQ(program.instructions.size(), 4);
+    ASSERT_EQ(program.instructions.size(), 5);
 
     // First declaration
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);
@@ -211,7 +218,7 @@ TEST_F(BytecodeCompilerStatementTest, CompileVariableInExpression) {
     auto program = compileStatement("x: int = 10\ny: int = 20\nz: int = x + y");
 
     // Should load both variables and add them, then store result
-    ASSERT_EQ(program.instructions.size(), 8);
+    ASSERT_EQ(program.instructions.size(), 9);
 
     // Last 4 instructions should be: LOAD_LOCAL 0, LOAD_LOCAL 1, ADD_INT, STORE_LOCAL 2
     expectInstruction(program.instructions, 4, OPCode::LOAD_LOCAL, 0);  // x
@@ -234,9 +241,121 @@ TEST_F(BytecodeCompilerStatementTest, CompileFunctionCallStatement) {
 
 // ===== IF STATEMENT COMPILATION TESTS =====
 
-TEST_F(BytecodeCompilerStatementTest, CompileIfStatement) {
-    // If statements aren't implemented yet, should throw
-    EXPECT_THROW(compileStatement("if (true): x = 1"), RuntimeException);
+TEST_F(BytecodeCompilerStatementTest, CompileSimpleIfStatement) {
+    auto program = compileStatement("x: int = 0\nif (true) {\n    x = 42\n}");
+
+    // Expected: variable setup, condition, jump_if_false, if-body, halt
+    ASSERT_GE(program.instructions.size(), 5);
+
+    // Check for JUMP_IF_FALSE instruction
+    bool foundJumpIfFalse = false;
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) {
+            foundJumpIfFalse = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundJumpIfFalse);
+}
+
+TEST_F(BytecodeCompilerStatementTest, CompileIfElseStatement) {
+    auto program = compileStatement("x: int = 0\nif (true) {\n    x = 1\n} else {\n    x = 2\n}");
+
+    // Should have both JUMP_IF_FALSE and JUMP instructions
+    bool foundJumpIfFalse = false;
+    bool foundJump = false;
+
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) foundJumpIfFalse = true;
+        if (inst.opcode == OPCode::JUMP) foundJump = true;
+    }
+
+    EXPECT_TRUE(foundJumpIfFalse);
+    EXPECT_TRUE(foundJump);
+}
+
+TEST_F(BytecodeCompilerStatementTest, CompileIfWithoutElse) {
+    auto program = compileStatement("x: int = 0\nif (false) {\n    x = 42\n}");
+
+    // Should have JUMP_IF_FALSE but no JUMP (no else to skip)
+    bool foundJumpIfFalse = false;
+    bool foundJump = false;
+
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) foundJumpIfFalse = true;
+        if (inst.opcode == OPCode::JUMP) foundJump = true;
+    }
+
+    EXPECT_TRUE(foundJumpIfFalse);
+    EXPECT_FALSE(foundJump);  // No else block, so no jump needed
+}
+
+TEST_F(BytecodeCompilerStatementTest, CompileIfWithComplexCondition) {
+    auto program = compileStatement("x: int = 5\ny: int = 10\nif (x < y) {\n    x = 99\n}");
+
+    // Should compile without errors and have comparison + jump
+    EXPECT_GT(program.instructions.size(), 5);
+
+    bool foundComparison = false;
+    bool foundJumpIfFalse = false;
+
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::LT_INT) foundComparison = true;
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) foundJumpIfFalse = true;
+    }
+
+    EXPECT_TRUE(foundComparison);
+    EXPECT_TRUE(foundJumpIfFalse);
+}
+
+TEST_F(BytecodeCompilerStatementTest, CompileNestedIfStatements) {
+    auto program = compileStatement(
+        "x: int = 5\n"
+        "if (x > 0) {\n"
+        "    if (x < 10) {\n"
+        "        x = 1\n"
+        "    }\n"
+        "}"
+    );
+
+    // Should have multiple JUMP_IF_FALSE instructions for nested ifs
+    int jumpIfFalseCount = 0;
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) {
+            jumpIfFalseCount++;
+        }
+    }
+
+    EXPECT_EQ(jumpIfFalseCount, 2);  // One for each if
+}
+
+TEST_F(BytecodeCompilerStatementTest, CompileIfElseWithMultipleStatements) {
+    auto program = compileStatement(
+        "x: int = 0\n"
+        "y: int = 0\n"
+        "if (true) {\n"
+        "    x = 1\n"
+        "    y = 2\n"
+        "} else {\n"
+        "    x = 3\n"
+        "    y = 4\n"
+        "}"
+    );
+
+    // Should compile successfully with multiple statements in each block
+    EXPECT_GT(program.instructions.size(), 10);
+
+    // Should have both jump types
+    bool foundJumpIfFalse = false;
+    bool foundJump = false;
+
+    for (const auto& inst : program.instructions) {
+        if (inst.opcode == OPCode::JUMP_IF_FALSE) foundJumpIfFalse = true;
+        if (inst.opcode == OPCode::JUMP) foundJump = true;
+    }
+
+    EXPECT_TRUE(foundJumpIfFalse);
+    EXPECT_TRUE(foundJump);
 }
 
 // ===== EXPRESSION STATEMENT COMPILATION TESTS =====
@@ -244,8 +363,8 @@ TEST_F(BytecodeCompilerStatementTest, CompileIfStatement) {
 TEST_F(BytecodeCompilerStatementTest, CompileExpressionStatement) {
     auto program = compileStatement("42");
 
-    // Should just compile the expression
-    ASSERT_EQ(program.instructions.size(), 1);
+    // Should just compile the expression and halt
+    ASSERT_EQ(program.instructions.size(), 2);
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);
 
     ASSERT_EQ(program.constants.size(), 1);
@@ -255,13 +374,13 @@ TEST_F(BytecodeCompilerStatementTest, CompileExpressionStatement) {
 TEST_F(BytecodeCompilerStatementTest, CompileComplexExpressionStatement) {
     auto program = compileStatement("2 + 3 * 4");
 
-    // Should compile the full expression
-    ASSERT_EQ(program.instructions.size(), 5);
+    ASSERT_EQ(program.instructions.size(), 6);
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);  // 2
     expectInstruction(program.instructions, 1, OPCode::LOAD_INT, 1);  // 3
     expectInstruction(program.instructions, 2, OPCode::LOAD_INT, 2);  // 4
     expectInstruction(program.instructions, 3, OPCode::MULT_INT);
     expectInstruction(program.instructions, 4, OPCode::ADD_INT);
+    expectInstruction(program.instructions, 5, OPCode::HALT, -1);
 }
 
 // ===== SYMBOL TABLE TESTS =====
@@ -270,7 +389,7 @@ TEST_F(BytecodeCompilerStatementTest, SymbolTableSlotAllocation) {
     auto program = compileStatement("a: int = 1\nb: int = 2\nc: int = 3");
 
     // Should allocate slots 0, 1, 2 for variables a, b, c
-    ASSERT_EQ(program.instructions.size(), 6);
+    ASSERT_EQ(program.instructions.size(), 7);
 
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);  // a
     expectInstruction(program.instructions, 3, OPCode::STORE_LOCAL, 1);  // b
@@ -292,8 +411,8 @@ TEST_F(BytecodeCompilerStatementTest, SymbolTableTypeTracking) {
 TEST_F(BytecodeCompilerStatementTest, EmptyProgram) {
     auto program = compileStatement("");
 
-    // Empty program should generate no instructions
-    EXPECT_EQ(program.instructions.size(), 0);
+    // Empty program should generate no instructions except for halt
+    EXPECT_EQ(program.instructions.size(), 1);
     EXPECT_EQ(program.constants.size(), 0);
     EXPECT_EQ(program.strings.size(), 0);
 }
@@ -301,16 +420,17 @@ TEST_F(BytecodeCompilerStatementTest, EmptyProgram) {
 TEST_F(BytecodeCompilerStatementTest, OnlyNewlines) {
     auto program = compileStatement("\n\n\n");
 
-    // Only newlines should generate no instructions
-    EXPECT_EQ(program.instructions.size(), 0);
+    // Only newlines should generate no instructions except for halt
+    EXPECT_EQ(program.instructions.size(), 1);
 }
 
 TEST_F(BytecodeCompilerStatementTest, LongVariableNames) {
     auto program = compileStatement("very_long_variable_name_with_many_underscores: int = 123");
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);
     expectInstruction(program.instructions, 0, OPCode::LOAD_INT, 0);
     expectInstruction(program.instructions, 1, OPCode::STORE_LOCAL, 0);
+    expectInstruction(program.instructions, 2, OPCode::HALT, -1);
 }
 
 TEST_F(BytecodeCompilerStatementTest, VariableNameReuse) {

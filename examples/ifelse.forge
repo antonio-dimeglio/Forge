@@ -1,0 +1,10 @@
+universe: int = 42
+x: int = 4
+y: int = 5
+z: int = 0
+
+if (universe > 41) {
+    z = x + y
+} else {
+    z = x - y
+}

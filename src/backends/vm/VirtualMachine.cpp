@@ -251,6 +251,12 @@ void VirtualMachine::run() {
                 pushBool(a < b);
                 break;
             }
+            case OPCode::GT_INT: {
+                int b = popInt();
+                int a = popInt();
+                pushBool(a > b);
+                break;
+            }
 
             case OPCode::EQ_DOUBLE: {
                 double b = popDouble();
@@ -262,6 +268,12 @@ void VirtualMachine::run() {
                 double b = popDouble();
                 double a = popDouble();
                 pushBool(a < b);
+                break;
+            }
+            case OPCode::GT_DOUBLE: {
+                double b = popDouble();
+                double a = popDouble();
+                pushBool(a > b);
                 break;
             }
 
@@ -286,7 +298,17 @@ void VirtualMachine::run() {
                 pushBool(!a);
                 break;
             }
-
+            case OPCode::JUMP: {
+                ip = inst.operand - 1;
+                break;
+            }
+            case OPCode::JUMP_IF_FALSE: {
+                bool a = popBool();
+                if (!a) {
+                    ip = inst.operand - 1;
+                }
+                break;
+            }
             case OPCode::HALT:
                 return;
 
@@ -366,8 +388,13 @@ const char* OpCodeToString(OPCode op) {
 
         case OPCode::EQ_INT: return "EQ_INT";
         case OPCode::LT_INT: return "LT_INT";
+        case OPCode::GT_INT: return "GT_INT";
         case OPCode::EQ_DOUBLE: return "EQ_DOUBLE";
         case OPCode::LT_DOUBLE: return "LT_DOUBLE";
+        case OPCode::GT_DOUBLE: return "GT_DOUBLE";
+
+        case OPCode::JUMP: return "JUMP";
+        case OPCode::JUMP_IF_FALSE: return "JUMP_IF_FALSE";
 
         case OPCode::HALT: return "HALT";
         default: return "UNKNOWN";
@@ -399,4 +426,12 @@ std::string VirtualMachine::valueToString(TypedValue tv) {
         default:
             return result + "unknown";
     }
+}
+
+TypedValue VirtualMachine::getLocal(size_t idx) {
+    if (idx < locals.size()) {
+        return locals[idx];
+    }
+
+    throw RuntimeException("Tried to get value from locals at invalid index.");
 }

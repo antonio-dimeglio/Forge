@@ -849,7 +849,7 @@ TEST_F(StatementParserTest, ParseFunctionCallMissingCloseParen) {
 // ===== IF STATEMENT TESTS =====
 
 TEST_F(StatementParserTest, ParseSimpleIfStatement) {
-    auto stmt = parseStatement("if (x == 5): test()");
+    auto stmt = parseStatement("if (x == 5) {\n    test()\n}");
     auto program = dynamic_cast<Program*>(stmt.get());
     auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
 
@@ -874,7 +874,7 @@ TEST_F(StatementParserTest, ParseSimpleIfStatement) {
 }
 
 TEST_F(StatementParserTest, ParseIfWithComplexCondition) {
-    auto stmt = parseStatement("if (x + y > 10 * 2): foo()");
+    auto stmt = parseStatement("if (x + y > 10 * 2) {\n    foo()\n}");
     auto program = dynamic_cast<Program*>(stmt.get());
     auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
 
@@ -884,7 +884,7 @@ TEST_F(StatementParserTest, ParseIfWithComplexCondition) {
 }
 
 TEST_F(StatementParserTest, ParseIfWithVariableAssignment) {
-    auto stmt = parseStatement("if (flag): x = 42");
+    auto stmt = parseStatement("if (flag) {\n    x = 42\n}");
     auto program = dynamic_cast<Program*>(stmt.get());
     auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
 
@@ -896,19 +896,19 @@ TEST_F(StatementParserTest, ParseIfWithVariableAssignment) {
 // ===== IF STATEMENT ERROR TESTS =====
 
 TEST_F(StatementParserTest, ParseIfMissingOpenParen) {
-    EXPECT_THROW(parseStatement("if x == 5): test()"), ParsingException);
+    EXPECT_THROW(parseStatement("if x == 5) {\n    test()\n}"), ParsingException);
 }
 
 TEST_F(StatementParserTest, ParseIfMissingCloseParen) {
-    EXPECT_THROW(parseStatement("if (x == 5: test()"), ParsingException);
+    EXPECT_THROW(parseStatement("if (x == 5 {\n    test()\n}"), ParsingException);
 }
 
-TEST_F(StatementParserTest, ParseIfMissingColon) {
+TEST_F(StatementParserTest, ParseIfMissingOpenBrace) {
     EXPECT_THROW(parseStatement("if (x == 5) test()"), ParsingException);
 }
 
 TEST_F(StatementParserTest, ParseIfMissingCondition) {
-    EXPECT_THROW(parseStatement("if (): test()"), ParsingException);
+    EXPECT_THROW(parseStatement("if () {\n    test()\n}"), ParsingException);
 }
 
 // ===== PROGRAM TESTS (MULTIPLE STATEMENTS) =====
@@ -932,7 +932,7 @@ TEST_F(StatementParserTest, ParseMultipleStatements) {
 }
 
 TEST_F(StatementParserTest, ParseMixedStatements) {
-    auto stmt = parseStatement("x: int = 5\nx = 10\nif (x > 5): test()");
+    auto stmt = parseStatement("x: int = 5\nx = 10\nif (x > 5) {\n    test()\n}");
     auto program = dynamic_cast<Program*>(stmt.get());
     ASSERT_EQ(program->statements.size(), 3);
 
@@ -993,7 +993,7 @@ TEST_F(StatementParserTest, ParseNestedExpressions) {
 }
 
 TEST_F(StatementParserTest, ParseComplexIfConditions) {
-    auto stmt = parseStatement("if (!flag && (x > 0)): result = x * 2");
+    auto stmt = parseStatement("if (!flag && (x > 0)) {\n    result = x * 2\n}");
     auto program = dynamic_cast<Program*>(stmt.get());
     auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
 
@@ -1057,8 +1057,9 @@ TEST_F(StatementParserTest, ParseComprehensiveProgram) {
 
         x = x + 1
 
-        if (sum > 25):
+        if (sum > 25) {
             result = sum * 2
+        }
 
         test()
         foo()

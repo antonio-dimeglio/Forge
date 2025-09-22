@@ -18,7 +18,10 @@ enum class OPCode {
     INT_TO_DOUBLE, FLOAT_TO_DOUBLE,
 
     // Comparisons (return bool)
-    EQ_INT, EQ_DOUBLE, LT_INT, LT_DOUBLE,
+    EQ_INT, EQ_DOUBLE, LT_INT, LT_DOUBLE, GT_INT, GT_DOUBLE,
+
+    // Control flow
+    JUMP_IF_FALSE, JUMP,
 
     HALT
 };

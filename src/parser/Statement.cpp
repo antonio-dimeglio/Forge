@@ -30,7 +30,7 @@ std::string Assignment::toString(int indent) const {
 }
 
 void IfStatement::accept(BytecodeCompiler& compiler) const {
-    throw RuntimeException("IfStatement compilation not implemented");
+    compiler.compileIfStatement(*this);
 }
 
 std::string IfStatement::toString(int indent) const {

@@ -3,7 +3,9 @@
 #include "../../include/backends/vm/VirtualMachine.hpp"
 #include "../../include/parser/Expression.hpp"
 #include "../../include/parser/Statement.hpp"
+#include "../../include/parser/Parser.hpp"
 #include "../../include/lexer/Token.hpp"
+#include "../../include/lexer/Tokenizer.hpp"
 
 class CompilerVMIntegrationTest : public ::testing::Test {
 protected:
@@ -334,4 +336,135 @@ TEST_F(CompilerVMIntegrationTest, CompileAndExecuteComplexExpression) {
 
     int result = vm.popInt();
     EXPECT_EQ(result, 2);
+}
+
+// ===== IF/ELSE EXECUTION TESTS =====
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfStatementTrue) {
+    std::string code = "x: int = 0\nif (true) {\n x = 42 }";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // x should be 42 because condition was true
+    EXPECT_EQ(vm.getLocal(0).value.i, 42);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfStatementFalse) {
+    std::string code = "x: int = 99\nif (false) {\n    x = 42\n}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // x should still be 99 because condition was false
+    EXPECT_EQ(vm.getLocal(0).value.i, 99);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfElseStatementTrue) {
+    std::string code = "x: int = 0\nif (true) {\n    x = 1\n} else {\n    x = 2\n}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // x should be 1 (if branch)
+    EXPECT_EQ(vm.getLocal(0).value.i, 1);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfElseStatementFalse) {
+    std::string code = "x: int = 0\nif (false) {\n    x = 1\n} else {\n    x = 2\n}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // x should be 2 (else branch)
+    EXPECT_EQ(vm.getLocal(0).value.i, 2);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfWithComplexCondition) {
+    std::string code = "x: int = 10\ny: int = 5\nresult: int = 0\nif (x > y) {\n    result = 1\n}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // result should be 1 because 10 > 5 is true
+    EXPECT_EQ(vm.getLocal(2).value.i, 1);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteNestedIfStatements) {
+    std::string code =
+        "x: int = 5\n"
+        "result: int = 0\n"
+        "if (x > 0) {\n"
+        "    if (x < 10) {\n"
+        "        result = 42\n"
+        "    }\n"
+        "}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // result should be 42 because both conditions are true
+    EXPECT_EQ(vm.getLocal(1).value.i, 42);
+}
+
+TEST_F(CompilerVMIntegrationTest, ExecuteIfElseWithMultipleStatements) {
+    std::string code =
+        "a: int = 0\n"
+        "b: int = 0\n"
+        "if (true) {\n"
+        "    a = 10\n"
+        "    b = 20\n"
+        "} else {\n"
+        "    a = 30\n"
+        "    b = 40\n"
+        "}";
+
+    Tokenizer tokenizer(code);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    auto program = compiler.compile(std::move(ast));
+    vm.loadProgram(program.instructions, program.constants, program.strings);
+    vm.run();
+
+    // Should execute if branch
+    EXPECT_EQ(vm.getLocal(0).value.i, 10);  // a = 10
+    EXPECT_EQ(vm.getLocal(1).value.i, 20);  // b = 20
 }

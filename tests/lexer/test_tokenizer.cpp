@@ -400,14 +400,15 @@ TEST_F(TokenizerTest, FunctionCall) {
 }
 
 TEST_F(TokenizerTest, IfStatement) {
-    auto tokens = tokenize("if x > 0:");
-    ASSERT_EQ(tokens.size(), 6);
+    auto tokens = tokenize("if (x > 0)");
+    ASSERT_EQ(tokens.size(), 7);
     expectToken(tokens[0], TokenType::IF, "if");
-    expectToken(tokens[1], TokenType::IDENTIFIER, "x");
-    expectToken(tokens[2], TokenType::GREATER, ">");
-    expectToken(tokens[3], TokenType::NUMBER, "0");
-    expectToken(tokens[4], TokenType::COLON, ":");
-    expectToken(tokens[5], TokenType::END_OF_FILE);
+    expectToken(tokens[1], TokenType::LPAREN, "(");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "x");
+    expectToken(tokens[3], TokenType::GREATER, ">");
+    expectToken(tokens[4], TokenType::NUMBER, "0");
+    expectToken(tokens[5], TokenType::RPAREN, ")");
+    expectToken(tokens[6], TokenType::END_OF_FILE);
 }
 
 TEST_F(TokenizerTest, FunctionDefinition) {
@@ -484,10 +485,11 @@ TEST_F(TokenizerTest, UnicodeCharacters) {
 TEST_F(TokenizerTest, SimpleProgram) {
     std::string program = R"(
 x: int = 42
-if x > 0:
+if (x > 0) {
     print("positive")
-else:
+} else {
     print("not positive")
+}
 )";
     auto tokens = tokenize(program);
 
@@ -509,10 +511,12 @@ else:
 
 TEST_F(TokenizerTest, FunctionProgram) {
     std::string program = R"(
-def fibonacci(n: int) -> int:
-    if n <= 1:
+def fibonacci(n: int) -> int: {
+    if (n <= 1) {
         return n
+    }
     return fibonacci(n-1) + fibonacci(n-2)
+}
 )";
     auto tokens = tokenize(program);
 

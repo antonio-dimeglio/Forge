@@ -75,9 +75,10 @@ TEST_F(BytecodeCompilerTest, CompileIntLiteral) {
     auto expr = makeLiteral(makeIntToken(42));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::INT);
     EXPECT_EQ(program.constants[0].value.i, 42);
@@ -88,9 +89,10 @@ TEST_F(BytecodeCompilerTest, CompileFloatLiteral) {
     auto expr = makeLiteral(makeFloatToken(3.14f));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_FLOAT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_FLOAT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::FLOAT);
     EXPECT_FLOAT_EQ(program.constants[0].value.f, 3.14f);
@@ -101,9 +103,10 @@ TEST_F(BytecodeCompilerTest, CompileDoubleLiteral) {
     auto expr = makeLiteral(makeDoubleToken(2.718));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_DOUBLE + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_DOUBLE);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::DOUBLE);
     EXPECT_DOUBLE_EQ(program.constants[0].value.d, 2.718);
@@ -114,9 +117,10 @@ TEST_F(BytecodeCompilerTest, CompileBoolLiteralTrue) {
     auto expr = makeLiteral(makeBoolToken(true));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_BOOL + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::BOOL);
     EXPECT_EQ(program.constants[0].value.b, true);
@@ -127,9 +131,10 @@ TEST_F(BytecodeCompilerTest, CompileBoolLiteralFalse) {
     auto expr = makeLiteral(makeBoolToken(false));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_BOOL + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].type, TypedValue::Type::BOOL);
     EXPECT_EQ(program.constants[0].value.b, false);
@@ -140,9 +145,10 @@ TEST_F(BytecodeCompilerTest, CompileStringLiteral) {
     auto expr = makeLiteral(makeStringToken("hello"));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in string pool
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     EXPECT_TRUE(program.constants.empty());
     ASSERT_EQ(program.strings.size(), 1);
     EXPECT_EQ(program.strings[0], "hello");
@@ -171,12 +177,13 @@ TEST_F(BytecodeCompilerTest, CompileIntAddition) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + ADD_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index 0 in constants
     EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[1].operand, 1);  // Index 1 in constants
     EXPECT_EQ(program.instructions[2].opcode, OPCode::ADD_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 2);
     EXPECT_EQ(program.constants[0].value.i, 5);
     EXPECT_EQ(program.constants[1].value.i, 3);
@@ -189,10 +196,11 @@ TEST_F(BytecodeCompilerTest, CompileFloatAddition) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_FLOAT + ADD_FLOAT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_FLOAT);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_FLOAT);
     EXPECT_EQ(program.instructions[2].opcode, OPCode::ADD_FLOAT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileDoubleAddition) {
@@ -202,10 +210,11 @@ TEST_F(BytecodeCompilerTest, CompileDoubleAddition) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_DOUBLE + ADD_DOUBLE + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_DOUBLE);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_DOUBLE);
     EXPECT_EQ(program.instructions[2].opcode, OPCode::ADD_DOUBLE);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileIntSubtraction) {
@@ -215,8 +224,9 @@ TEST_F(BytecodeCompilerTest, CompileIntSubtraction) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + SUB_INT + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::SUB_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileIntMultiplication) {
@@ -226,8 +236,9 @@ TEST_F(BytecodeCompilerTest, CompileIntMultiplication) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + MULT_INT + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::MULT_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileIntDivision) {
@@ -237,8 +248,9 @@ TEST_F(BytecodeCompilerTest, CompileIntDivision) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + DIV_INT + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::DIV_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 // ============================================================================
@@ -252,8 +264,9 @@ TEST_F(BytecodeCompilerTest, CompileIntEquality) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + EQ_INT + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::EQ_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileDoubleEquality) {
@@ -263,8 +276,9 @@ TEST_F(BytecodeCompilerTest, CompileDoubleEquality) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_DOUBLE + EQ_DOUBLE + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::EQ_DOUBLE);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileIntLessThan) {
@@ -274,8 +288,9 @@ TEST_F(BytecodeCompilerTest, CompileIntLessThan) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_INT + LT_INT + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::LT_INT);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileDoubleLessThan) {
@@ -285,8 +300,9 @@ TEST_F(BytecodeCompilerTest, CompileDoubleLessThan) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);  // 2 LOAD_DOUBLE + LT_DOUBLE + HALT
     EXPECT_EQ(program.instructions[2].opcode, OPCode::LT_DOUBLE);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
 }
 
 // ============================================================================
@@ -299,10 +315,11 @@ TEST_F(BytecodeCompilerTest, CompileIntNegation) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_INT + NEG_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NEG_INT);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].value.i, 42);
 }
@@ -313,10 +330,11 @@ TEST_F(BytecodeCompilerTest, CompileFloatNegation) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_FLOAT + NEG_FLOAT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_FLOAT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NEG_FLOAT);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_FLOAT_EQ(program.constants[0].value.f, 3.14f);
 }
@@ -327,10 +345,11 @@ TEST_F(BytecodeCompilerTest, CompileDoubleNegation) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_DOUBLE + NEG_DOUBLE + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_DOUBLE);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NEG_DOUBLE);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_DOUBLE_EQ(program.constants[0].value.d, 2.718);
 }
@@ -341,10 +360,11 @@ TEST_F(BytecodeCompilerTest, CompileBoolNot) {
 
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 2);
+    ASSERT_EQ(program.instructions.size(), 3);  // LOAD_BOOL + NOT_BOOL + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants pool
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NOT_BOOL);
+    EXPECT_EQ(program.instructions[2].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].value.b, true);
 }
@@ -364,7 +384,7 @@ TEST_F(BytecodeCompilerTest, CompileNestedArithmetic) {
 
     auto program = compiler.compile(wrapInProgram(std::move(multiplication)));
 
-    ASSERT_EQ(program.instructions.size(), 5);
+    ASSERT_EQ(program.instructions.size(), 6);  // 3 LOAD_INT + ADD_INT + MULT_INT + HALT
     // Left side: 5 + 3
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants
@@ -375,6 +395,7 @@ TEST_F(BytecodeCompilerTest, CompileNestedArithmetic) {
     EXPECT_EQ(program.instructions[3].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[3].operand, 2);  // Index in constants
     EXPECT_EQ(program.instructions[4].opcode, OPCode::MULT_INT);
+    EXPECT_EQ(program.instructions[5].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 3);
     EXPECT_EQ(program.constants[0].value.i, 5);
     EXPECT_EQ(program.constants[1].value.i, 3);
@@ -391,13 +412,14 @@ TEST_F(BytecodeCompilerTest, CompileNestedWithUnary) {
 
     auto program = compiler.compile(wrapInProgram(std::move(addition)));
 
-    ASSERT_EQ(program.instructions.size(), 4);
+    ASSERT_EQ(program.instructions.size(), 5);  // 2 LOAD_INT + NEG_INT + ADD_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NEG_INT);
     EXPECT_EQ(program.instructions[2].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[2].operand, 1);  // Index in constants
     EXPECT_EQ(program.instructions[3].opcode, OPCode::ADD_INT);
+    EXPECT_EQ(program.instructions[4].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 2);
     EXPECT_EQ(program.constants[0].value.i, 5);
     EXPECT_EQ(program.constants[1].value.i, 3);
@@ -429,18 +451,20 @@ TEST_F(BytecodeCompilerTest, CompileZeroValues) {
     auto expr = makeLiteral(makeIntToken(0));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
 }
 
 TEST_F(BytecodeCompilerTest, CompileNegativeValues) {
     auto expr = makeLiteral(makeIntToken(-42));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_INT + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);  // Index in constants
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].value.i, -42);
 }
@@ -449,8 +473,9 @@ TEST_F(BytecodeCompilerTest, CompileEmptyString) {
     auto expr = makeLiteral(makeStringToken(""));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.strings.size(), 1);
     EXPECT_EQ(program.strings[0], "");
 }
@@ -460,8 +485,9 @@ TEST_F(BytecodeCompilerTest, CompileLongString) {
     auto expr = makeLiteral(makeStringToken(longStr));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);  // LOAD_STRING + HALT
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
+    EXPECT_EQ(program.instructions[1].opcode, OPCode::HALT);
     ASSERT_EQ(program.strings.size(), 1);
     EXPECT_EQ(program.strings[0], longStr);
 }
@@ -487,8 +513,8 @@ TEST_F(BytecodeCompilerTest, CompileDeeplyNestedExpression) {
 
     auto program = compiler.compile(wrapInProgram(std::move(final)));
 
-    // Should have 9 instructions: 5 loads + 4 additions
-    EXPECT_EQ(program.instructions.size(), 9);
+    // Should have 9 instructions: 5 loads + 4 additions + HALT
+    EXPECT_EQ(program.instructions.size(), 10);
 }
 
 TEST_F(BytecodeCompilerTest, CompileMultipleBinaryOperations) {
@@ -526,7 +552,7 @@ TEST_F(BytecodeCompilerTest, CompileChainedNegation) {
 
     auto program = compiler.compile(wrapInProgram(std::move(negation2)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NEG_INT);
@@ -543,10 +569,11 @@ TEST_F(BytecodeCompilerTest, CompileChainedNotOperations) {
 
     auto program = compiler.compile(wrapInProgram(std::move(not2)));
 
-    ASSERT_EQ(program.instructions.size(), 3);
+    ASSERT_EQ(program.instructions.size(), 4);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_BOOL);
     EXPECT_EQ(program.instructions[1].opcode, OPCode::NOT_BOOL);
     EXPECT_EQ(program.instructions[2].opcode, OPCode::NOT_BOOL);
+    EXPECT_EQ(program.instructions[3].opcode, OPCode::HALT);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_EQ(program.constants[0].value.b, true);
 }
@@ -555,7 +582,7 @@ TEST_F(BytecodeCompilerTest, CompileVeryLargeInteger) {
     auto expr = makeLiteral(makeIntToken(2147483647));  // INT_MAX
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);
     ASSERT_EQ(program.constants.size(), 1);
@@ -566,7 +593,7 @@ TEST_F(BytecodeCompilerTest, CompileVerySmallInteger) {
     auto expr = makeLiteral(makeIntToken(-2147483648));  // INT_MIN
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);
     EXPECT_EQ(program.instructions[0].operand, 0);
     ASSERT_EQ(program.constants.size(), 1);
@@ -590,7 +617,7 @@ TEST_F(BytecodeCompilerTest, CompileSpecialDoubleValues) {
     auto expr = makeLiteral(makeDoubleToken(std::numeric_limits<double>::infinity()));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_DOUBLE);
     ASSERT_EQ(program.constants.size(), 1);
     EXPECT_TRUE(std::isinf(program.constants[0].value.d));
@@ -600,7 +627,7 @@ TEST_F(BytecodeCompilerTest, CompileStringWithSpecialCharacters) {
     auto expr = makeLiteral(makeStringToken("Hello\nWorld\t\"Quote\"\\Backslash"));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     EXPECT_EQ(program.instructions[0].operand, 0);
     ASSERT_EQ(program.strings.size(), 1);
@@ -611,7 +638,7 @@ TEST_F(BytecodeCompilerTest, CompileStringWithUnicodeCharacters) {
     auto expr = makeLiteral(makeStringToken("🚀 Hello 世界 🌍"));
     auto program = compiler.compile(wrapInProgram(std::move(expr)));
 
-    ASSERT_EQ(program.instructions.size(), 1);
+    ASSERT_EQ(program.instructions.size(), 2);
     EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_STRING);
     ASSERT_EQ(program.strings.size(), 1);
     EXPECT_EQ(program.strings[0], "🚀 Hello 世界 🌍");
@@ -644,7 +671,7 @@ TEST_F(BytecodeCompilerTest, CompileLeftAssociativeOperations) {
 
     auto program = compiler.compile(wrapInProgram(std::move(add3)));
 
-    ASSERT_EQ(program.instructions.size(), 7);  // 4 loads + 3 adds
+    ASSERT_EQ(program.instructions.size(), 8);  // 4 loads + 3 adds + 1 halt
     EXPECT_EQ(program.constants.size(), 4);
 }
 
@@ -662,7 +689,7 @@ TEST_F(BytecodeCompilerTest, CompileRightAssociativeOperations) {
 
     auto program = compiler.compile(wrapInProgram(std::move(add3)));
 
-    ASSERT_EQ(program.instructions.size(), 7);  // 4 loads + 3 adds
+    ASSERT_EQ(program.instructions.size(), 8);  // 4 loads + 3 adds + 1 halt
     EXPECT_EQ(program.constants.size(), 4);
 }
 

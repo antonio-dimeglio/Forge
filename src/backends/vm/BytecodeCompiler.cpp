@@ -43,6 +43,10 @@ static const std::unordered_map<TokenType,
     {TokenType::LESS, {
         {TypedValue::Type::INT, OPCode::LT_INT},
         {TypedValue::Type::DOUBLE, OPCode::LT_DOUBLE}
+    }},
+    {TokenType::GREATER, {
+        {TypedValue::Type::INT, OPCode::GT_INT},
+        {TypedValue::Type::DOUBLE, OPCode::GT_DOUBLE}
     }}
 };
 
@@ -131,7 +135,7 @@ BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Stat
     nextSlot = 0;
 
     ast->accept(*this);
-
+    emit(OPCode::HALT, -1);
     return CompiledProgram {
         .instructions = instructions,
         .constants = constants,
@@ -271,4 +275,29 @@ void BytecodeCompiler::compileAssignment(const Assignment& node) {
 
     node.expr->accept(*this);
     emit(OPCode::STORE_LOCAL, it->second.slot);
+}
+
+void BytecodeCompiler::compileIfStatement(const IfStatement& node) { 
+    compileExpression(*node.condition);
+
+    int jumpIfFalsePos = instructions.size(); 
+    emit(OPCode::JUMP_IF_FALSE, 0);
+
+    for (const auto& stmt : node.body) {
+        stmt->accept(*this);
+    }
+
+    if (!node.elseBody.empty()) {
+        int jumpToEndPos = instructions.size();
+        emit(OPCode::JUMP, 0);
+
+        instructions[jumpIfFalsePos].operand = instructions.size();
+        for (const auto& stmt : node.elseBody) {
+            stmt->accept(*this);
+        }
+        instructions[jumpToEndPos].operand = instructions.size();
+    } else {
+        instructions[jumpIfFalsePos].operand = instructions.size();
+    }
+    
 }

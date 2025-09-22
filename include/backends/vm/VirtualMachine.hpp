@@ -49,5 +49,6 @@ class VirtualMachine {
         double popDouble();
         size_t popStringId();
         bool popBool();
-
+        
+        TypedValue getLocal(size_t idx);
 };
