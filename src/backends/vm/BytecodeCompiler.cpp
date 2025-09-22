@@ -161,6 +161,8 @@ BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Stat
     instructions.clear();
     constants.clear();
     nextSlot = 0;
+    scopeStack.clear();
+    scopeStack.push_back({});
 
     ast->accept(*this);
     emit(OPCode::HALT, -1);
@@ -250,14 +252,14 @@ TypedValue::Type BytecodeCompiler::compileUnary(const UnaryExpression& node) {
 
 TypedValue::Type BytecodeCompiler::compileIdentifier(const IdentifierExpression& node) {
     auto variable = node.name;
-    auto it = symbolTable.find(variable);
+    auto it = lookupVariable(variable);
 
-    if (it == symbolTable.end()) {
+    if (it == nullptr) {
         throw RuntimeException("Undefined variable: " + node.name);
     }
 
-    emit(OPCode::LOAD_LOCAL, it->second.slot);
-    return it->second.type;
+    emit(OPCode::LOAD_LOCAL, it->slot);
+    return it->type;
 }   
 
 OPCode BytecodeCompiler::getOpCode(TokenType op, TypedValue::Type type, bool isUnary) {
@@ -286,7 +288,7 @@ void BytecodeCompiler::compileVariableDeclaration(const VariableDeclaration& nod
     TypedValue::Type varType = typeTable.find(node.type.getType())->second;
 
     VariableInfo info = {nextSlot++, varType};
-    symbolTable[variable] = info;
+    declareVariable(variable, info);
 
     node.expr->accept(*this);
     emit(OPCode::STORE_LOCAL, info.slot);
@@ -295,37 +297,63 @@ void BytecodeCompiler::compileVariableDeclaration(const VariableDeclaration& nod
 void BytecodeCompiler::compileAssignment(const Assignment& node) {
     auto variable = node.variable.getValue();
 
-    auto it = symbolTable.find(variable);
-    if (it == symbolTable.end()) {
+    auto it = lookupVariable(variable);
+    if (it == nullptr) {
         throw RuntimeException("Tried to assign value to un-initialized variable at " +
             std::to_string(node.variable.getLine()) + ":" + std::to_string(node.variable.getColumn()));
     }
 
     node.expr->accept(*this);
-    emit(OPCode::STORE_LOCAL, it->second.slot);
+    emit(OPCode::STORE_LOCAL, it->slot);
 }
 
-void BytecodeCompiler::compileIfStatement(const IfStatement& node) { 
+void BytecodeCompiler::compileIfStatement(const IfStatement& node) {
     compileExpression(*node.condition);
 
-    int jumpIfFalsePos = instructions.size(); 
+    int jumpIfFalsePos = instructions.size();
     emit(OPCode::JUMP_IF_FALSE, 0);
 
-    for (const auto& stmt : node.body) {
-        stmt->accept(*this);
-    }
+    node.thenBlock->accept(*this);
 
-    if (!node.elseBody.empty()) {
+    if (node.elseBlock != nullptr) {
         int jumpToEndPos = instructions.size();
         emit(OPCode::JUMP, 0);
 
         instructions[jumpIfFalsePos].operand = instructions.size();
-        for (const auto& stmt : node.elseBody) {
-            stmt->accept(*this);
-        }
+        node.elseBlock->accept(*this);
         instructions[jumpToEndPos].operand = instructions.size();
     } else {
         instructions[jumpIfFalsePos].operand = instructions.size();
     }
-    
+
+}
+
+void BytecodeCompiler::enterScope() {
+    scopeStack.push_back({}); 
+}
+
+void BytecodeCompiler::exitScope() {
+    scopeStack.pop_back(); 
+}
+
+void BytecodeCompiler::compileBlockStatement(const BlockStatement& node) {
+    enterScope();
+    for (const auto& stmt : node.statements) {
+        stmt->accept(*this);
+    }
+    exitScope();
+}
+
+BytecodeCompiler::VariableInfo* BytecodeCompiler::lookupVariable(const std::string& name) {
+    for (int i = scopeStack.size() - 1; i >= 0; i--) {
+        auto it = scopeStack[i].find(name);
+        if (it != scopeStack[i].end()) {
+            return &it->second;
+        }
+    }
+    return nullptr; 
+}
+
+void BytecodeCompiler::declareVariable(const std::string& name, const VariableInfo& info) {
+    scopeStack.back()[name] = info; 
 }

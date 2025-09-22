@@ -860,17 +860,18 @@ TEST_F(StatementParserTest, ParseSimpleIfStatement) {
     ASSERT_NE(condition, nullptr);
     EXPECT_EQ(condition->operator_.getType(), TokenType::EQUAL_EQUAL);
 
-    // Check body
-    ASSERT_EQ(ifStmt->body.size(), 1);
-    auto bodyStmt = dynamic_cast<ExpressionStatement*>(ifStmt->body[0].get());
+    // Check then block
+    ASSERT_NE(ifStmt->thenBlock, nullptr);
+    ASSERT_EQ(ifStmt->thenBlock->statements.size(), 1);
+    auto bodyStmt = dynamic_cast<ExpressionStatement*>(ifStmt->thenBlock->statements[0].get());
     ASSERT_NE(bodyStmt, nullptr);
 
     auto funcCall = dynamic_cast<FunctionCall*>(bodyStmt->expression.get());
     ASSERT_NE(funcCall, nullptr);
     EXPECT_EQ(funcCall->functionName, "test");
 
-    // Check no else body
-    EXPECT_TRUE(ifStmt->elseBody.empty());
+    // Check no else block
+    EXPECT_EQ(ifStmt->elseBlock, nullptr);
 }
 
 TEST_F(StatementParserTest, ParseIfWithComplexCondition) {
@@ -888,7 +889,8 @@ TEST_F(StatementParserTest, ParseIfWithVariableAssignment) {
     auto program = dynamic_cast<Program*>(stmt.get());
     auto ifStmt = dynamic_cast<IfStatement*>(program->statements[0].get());
 
-    auto bodyStmt = dynamic_cast<Assignment*>(ifStmt->body[0].get());
+    ASSERT_NE(ifStmt->thenBlock, nullptr);
+    auto bodyStmt = dynamic_cast<Assignment*>(ifStmt->thenBlock->statements[0].get());
     ASSERT_NE(bodyStmt, nullptr);
     EXPECT_EQ(bodyStmt->variable.getValue(), "x");
 }

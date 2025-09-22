@@ -335,6 +335,32 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
     ); 
 }   
 
+std::unique_ptr<BlockStatement> Parser::parseBlockStatement() {
+    Token t(TokenType::END_OF_FILE, -1, -1);
+
+    if ((t = advance()).getType() != TokenType::LBRACE) {
+        throw ParsingException("Expected {", t.getLine(), t.getColumn());
+    }
+
+    std::vector<std::unique_ptr<Statement>> statements;
+    while (current().getType() != TokenType::RBRACE) {
+        if (isAtEnd()) {
+            throw ParsingException("Expected }", current().getLine(), current().getColumn());
+        }
+        auto stmt = parseStatement();
+        if (stmt != nullptr) {
+            statements.push_back(std::move(stmt));
+        }
+        skipNewLines();
+    }
+
+    if ((t = advance()).getType() != TokenType::RBRACE) {
+        throw ParsingException("Expected }", t.getLine(), t.getColumn());
+    }
+
+    return std::make_unique<BlockStatement>(std::move(statements));
+}
+
 std::unique_ptr<Statement> Parser::parseIfStatement() {
     Token t(TokenType::END_OF_FILE, -1, -1);
 
@@ -352,56 +378,20 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
         throw ParsingException("Expected )", t.getLine(), t.getColumn());
     }
 
-    if ((t = advance()).getType() != TokenType::LBRACE) {
-        throw ParsingException("Expected {", t.getLine(), t.getColumn());
-    }
-
-    // Parse statements until we hit RBRACE
-    std::vector<std::unique_ptr<Statement>> bodyVector;
-    while (current().getType() != TokenType::RBRACE) {
-        if (isAtEnd()) {
-            throw ParsingException("Expected }", current().getLine(), current().getColumn());
-        }
-        auto stmt = parseStatement();
-        if (stmt != nullptr) {
-            bodyVector.push_back(std::move(stmt));
-        }
-        skipNewLines();
-    }
-
-    if ((t = advance()).getType() != TokenType::RBRACE) {
-        throw ParsingException("Expected }", t.getLine(), t.getColumn());
-    }
+    // Parse then block
+    auto thenBlock = parseBlockStatement();
 
     // Check for else clause
-    std::vector<std::unique_ptr<Statement>> elseVector;
+    std::unique_ptr<BlockStatement> elseBlock = nullptr;
     if (current().getType() == TokenType::ELSE) {
         advance(); // consume ELSE
-        if ((t = advance()).getType() != TokenType::LBRACE) {
-            throw ParsingException("Expected {", t.getLine(), t.getColumn());
-        }
-
-        // Parse else block statements
-        while (current().getType() != TokenType::RBRACE) {
-            if (isAtEnd()) {
-                throw ParsingException("Expected }", current().getLine(), current().getColumn());
-            }
-            auto stmt = parseStatement();
-            if (stmt != nullptr) {
-                elseVector.push_back(std::move(stmt));
-            }
-            skipNewLines();
-        }
-
-        if ((t = advance()).getType() != TokenType::RBRACE) {
-            throw ParsingException("Expected }", t.getLine(), t.getColumn());
-        }
+        elseBlock = parseBlockStatement();
     }
 
     return std::make_unique<IfStatement>(
         std::move(expression),
-        std::move(bodyVector),
-        std::move(elseVector)
+        std::move(thenBlock),
+        std::move(elseBlock)
     );
 }
 

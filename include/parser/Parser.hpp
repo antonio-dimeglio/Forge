@@ -33,6 +33,7 @@ class Parser {
         std::unique_ptr<Statement> parseVariableDeclaration();
         std::unique_ptr<Statement> parseAssignment();
         std::unique_ptr<Statement> parseIfStatement();
+        std::unique_ptr<BlockStatement> parseBlockStatement();
 
         void skipNewLines();
     public:

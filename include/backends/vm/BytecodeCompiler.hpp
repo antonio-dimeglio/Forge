@@ -9,6 +9,7 @@
 
 class VirtualMachine;
 
+
 class BytecodeCompiler {
     public:
         struct CompiledProgram {
@@ -32,6 +33,7 @@ class BytecodeCompiler {
         void compileVariableDeclaration(const VariableDeclaration& node);
         void compileAssignment(const Assignment& node);
         void compileIfStatement(const IfStatement& node);
+        void compileBlockStatement(const BlockStatement& node);
         void compileProgram(const Program& node);
 
     private:
@@ -39,11 +41,16 @@ class BytecodeCompiler {
         std::vector<Instruction> instructions;
         std::vector<TypedValue> constants;
         TypedValue::Type currentExpressionType;
-        std::unordered_map<std::string, VariableInfo> symbolTable;
+        std::vector<std::unordered_map<std::string, VariableInfo>> scopeStack;
         int nextSlot = 0;
 
         TypedValue inferType(const Token& token);
         int addConstant(TypedValue value);
         void emit(OPCode opcode, int operand = 0);
         OPCode getOpCode(TokenType op, TypedValue::Type type, bool isUnary = false);
+
+        void enterScope();
+        void exitScope();
+        VariableInfo* lookupVariable(const std::string& name);
+        void declareVariable(const std::string& name, const VariableInfo& info);
 };

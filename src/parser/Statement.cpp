@@ -29,6 +29,22 @@ std::string Assignment::toString(int indent) const {
     return ss.str();
 }
 
+void BlockStatement::accept(BytecodeCompiler& compiler) const {
+    compiler.compileBlockStatement(*this);
+}
+
+std::string BlockStatement::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "BlockStatement:\n";
+    ss << indentStr << "{\n";
+    for (const auto& stmt : statements) {
+        ss << stmt->toString(indent + 2) << "\n";
+    }
+    ss << indentStr << "}";
+    return ss.str();
+}
+
 void IfStatement::accept(BytecodeCompiler& compiler) const {
     compiler.compileIfStatement(*this);
 }
@@ -38,15 +54,9 @@ std::string IfStatement::toString(int indent) const {
     std::stringstream ss;
     ss << indentStr << "IfStatement:\n";
     ss << indentStr << "  Condition:\n" << condition->toString(indent + 2) << "\n";
-    ss << indentStr << "  Body:\n";
-    for (const auto& stmt : body) {
-        ss << stmt->toString(indent + 2) << "\n";
-    }
-    if (!elseBody.empty()) {
-        ss << indentStr << "  Else:\n";
-        for (const auto& stmt : elseBody) {
-            ss << stmt->toString(indent + 2) << "\n";
-        }
+    ss << indentStr << "  ThenBlock:\n" << thenBlock->toString(indent + 2) << "\n";
+    if (elseBlock != nullptr) {
+        ss << indentStr << "  ElseBlock:\n" << elseBlock->toString(indent + 2) << "\n";
     }
     return ss.str();
 }

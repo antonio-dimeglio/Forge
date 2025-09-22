@@ -51,21 +51,34 @@ class Assignment: public Statement {
         std::string toString(int indent = 0) const override;
 };
 
+class BlockStatement : public Statement {
+public:
+    std::vector<std::unique_ptr<Statement>> statements;
+
+    explicit BlockStatement(std::vector<std::unique_ptr<Statement>> stmts)
+        : statements(std::move(stmts)) {}
+
+    void accept(BytecodeCompiler& compiler) const override;
+
+    std::string toString(int indent = 0) const override;
+};
+
 class IfStatement: public Statement {
     public:
         std::unique_ptr<Expression> condition;
-        std::vector<std::unique_ptr<Statement>> body;
-        std::vector<std::unique_ptr<Statement>> elseBody;
+        std::unique_ptr<BlockStatement> thenBlock;
+        std::unique_ptr<BlockStatement> elseBlock;
         IfStatement(
             std::unique_ptr<Expression> condition,
-            std::vector<std::unique_ptr<Statement>> body,
-            std::vector<std::unique_ptr<Statement>> elseBody = {}
+            std::unique_ptr<BlockStatement> thenBlock,
+            std::unique_ptr<BlockStatement> elseBlock
         ) : condition(std::move(condition)),
-            body(std::move(body)),
-            elseBody(std::move(elseBody)) {}
+            thenBlock(std::move(thenBlock)),
+            elseBlock(std::move(elseBlock)) {}
         void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
+
 
 class Program : public Statement {
     public:
