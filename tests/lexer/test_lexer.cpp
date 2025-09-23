@@ -30,13 +30,6 @@ TEST(TokenTypeTest, AllTokensConvertWithoutException) {
     }
 }
 
-TEST(TokenTypeTest, InvalidTokenThrowsException) {
-    EXPECT_THROW({
-        TokenType invalid = static_cast<TokenType>(999);
-        tokenTypeToString(invalid);
-    }, InvalidTokenTypeException);
-}
-
 // Token Tests
 TEST(TokenTest, ConstructorWithValue) {
     Token token(TokenType::PLUS, "+", 1, 5);

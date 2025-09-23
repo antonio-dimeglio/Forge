@@ -219,6 +219,9 @@ std::vector<Token> Tokenizer::tokenize() {
                     }   else if (peek() == '/') {
                             while(current() != '\n' && !isAtEnd()) {
                                 advance();
+                            }
+                            if (current() == '\n'){
+                                tokens.push_back(Token(TokenType::NEWLINE, "\n", line, column));
                             }                           
                     } 
                     else {
