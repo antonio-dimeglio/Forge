@@ -61,7 +61,8 @@
     /* Special */ \
     X(IDENTIFIER, "IDENTIFIER") \
     X(NEWLINE, "NEWLINE") \
-    X(END_OF_FILE, "END_OF_FILE")
+    X(END_OF_FILE, "END_OF_FILE") \
+    X(COMMENT, "COMMENT")
 
 
 enum class TokenType {

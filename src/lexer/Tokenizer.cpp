@@ -110,6 +110,42 @@ Token Tokenizer::scanNumber() {
     return Token(TokenType::NUMBER, value, line, start_column);
 }
 
+Token Tokenizer::scanOperator(char ch) {
+    auto it = operatorTable.find(ch);
+    if (it == operatorTable.end()) {
+        throw InvalidSyntaxException("Unknown operator: " + std::string(1, ch), line, column);
+    }
+
+    const OperatorInfo& opInfo = it->second;
+    auto startColumn = column;
+
+    // Check for compound operators
+    for (const auto& compound : opInfo.compounds) {
+        if (peek() == compound.nextChar) {
+            // Handle special case for comments
+            if (compound.tokenType == TokenType::COMMENT) {
+                // Skip comment logic (don't return a token)
+                advance(); // consume first '/'
+                advance(); // consume second '/'
+                while (current() != '\n' && !isAtEnd()) {
+                    advance();
+                }
+                if (current() == '\n') {
+                    return Token(TokenType::NEWLINE, "\n", line, column);
+                }
+                // Return empty token or handle differently
+                return Token(TokenType::END_OF_FILE, "", line, column); // Placeholder
+            }
+
+            advance(); // consume the second character
+            return Token(compound.tokenType, compound.text, line, startColumn);
+        }
+    }
+
+        // No compound found, return single character token
+    return Token(opInfo.singleCharToken, opInfo.singleCharText, line, startColumn);
+}
+
 Token Tokenizer::scanIdentifier() {
     // Theoretically this should be unreachable, because if the first 
     // character of an identifieris a digit/. it will fall in the 
@@ -184,130 +220,16 @@ std::vector<Token> Tokenizer::tokenize() {
         } else if (isWhitespace(ch)) {
             skipWhitespace();
         } else {
-            switch (ch) {
-                case '+':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::PLUS_EQ, "+=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::PLUS, "+", line, column));
-                    }
-                    break;
-                case '-':
-                    if (peek() == '>') {
-                        tokens.push_back(Token(TokenType::ARROW, "->", line, column));
-                        advance();
-                    } else if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::MINUS_EQ, "-=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::MINUS, "-", line, column));
-                    }
-                    break;
-                case '*':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::MULT_EQ, "*=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::MULT, "*", line, column));
-                    }
-                    break;
-                case '/':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::DIV_EQ, "/=", line, column));
-                        advance();
-                    }   else if (peek() == '/') {
-                            while(current() != '\n' && !isAtEnd()) {
-                                advance();
-                            }
-                            if (current() == '\n'){
-                                tokens.push_back(Token(TokenType::NEWLINE, "\n", line, column));
-                            }                           
-                    } 
-                    else {
-                        tokens.push_back(Token(TokenType::DIV, "/", line, column));
-                    }
-                    break;
-                case '=':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::EQUAL_EQUAL, "==", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::ASSIGN, "=", line, column));
-                    }
-                    break;
-                case '!':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::NOT_EQUAL, "!=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::NOT, "!", line, column));
-                    }
-                    break;
-                case '[':
-                    tokens.push_back(Token(TokenType::LSQUARE, "[", line, column));
-                    break;
-                case ']':
-                    tokens.push_back(Token(TokenType::RSQUARE, "]", line, column));
-                    break;
-                case '(':
-                    tokens.push_back(Token(TokenType::LPAREN, "(", line, column));
-                    break; 
-                case ')':
-                    tokens.push_back(Token(TokenType::RPAREN, ")", line, column));
-                    break; 
-                case '{':
-                    tokens.push_back(Token(TokenType::LBRACE, "{", line, column));
-                    break; 
-                case '}':
-                    tokens.push_back(Token(TokenType::RBRACE, "}", line, column));
-                    break; 
-                case ',':
-                    tokens.push_back(Token(TokenType::COMMA, ",", line, column));
-                    break;
-                case ':':
-                    tokens.push_back(Token(TokenType::COLON, ":", line, column));
-                    break;
-                case '>':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::GEQ, ">=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::GREATER, ">", line, column));
-                    }
-                    break;
-                case '<':
-                    if (peek() == '=') {
-                        tokens.push_back(Token(TokenType::LEQ, "<=", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::LESS, "<", line, column));
-                    }
-                    break;
-                case '&': 
-                    if (peek() == '&') {
-                        tokens.push_back(Token(TokenType::LOGIC_AND, "&&", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::BITWISE_AND, "&", line, column));
-                    }
-                    break;
-                case '|':
-                    if (peek() == '|') {
-                        tokens.push_back(Token(TokenType::LOGIC_OR, "||", line, column));
-                        advance();
-                    } else {
-                        tokens.push_back(Token(TokenType::BITWISE_OR, "|", line, column));
-                    }
-                    break;
-                case '^':
-                    tokens.push_back(Token(TokenType::BITWISE_XOR, "^", line, column));
-                    break;
-                default:
-                    throw InvalidSyntaxException("Found invalid character", line, column);
+            auto operatorIt = operatorTable.find(ch);
+            if (operatorIt != operatorTable.end()) {
+                Token token = scanOperator(ch);
+                if (token.getType() != TokenType::END_OF_FILE) {
+                    tokens.push_back(token);
+                }
+                advance();
+            } else{
+                throw InvalidSyntaxException("Found invalid character", line, column);            
             }
-            advance();
-            
         }
     }
     tokens.push_back(Token(TokenType::END_OF_FILE, line, column));

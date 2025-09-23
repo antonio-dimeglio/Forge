@@ -2,6 +2,7 @@
 #include <string> 
 #include <vector> 
 #include "Token.hpp"
+#include "Operator.hpp"
 
 class Tokenizer { 
     private:
@@ -24,6 +25,7 @@ class Tokenizer {
         Token scanNumber();
         Token scanIdentifier();
         Token scanString(char startingChar = '"');
+        Token scanOperator(char ch);
 
         void skipWhitespace();
 
