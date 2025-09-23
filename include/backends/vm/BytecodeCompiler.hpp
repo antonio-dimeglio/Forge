@@ -56,6 +56,7 @@ class BytecodeCompiler {
         std::vector<std::unordered_map<std::string, VariableInfo>> scopeStack;
         std::unordered_map<std::string, int> functionTable;
         int nextSlot = 0;
+        int globalSlot = 0;
 
         Value inferType(const Token& token);
         int addConstant(Value value);

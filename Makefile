@@ -23,7 +23,7 @@ all: $(TARGET)
 
 # Build main executable
 $(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET)
+	$(CXX) $(OBJECTS) -o $(TARGET) -g
 
 # Build object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp

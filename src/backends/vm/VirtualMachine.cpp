@@ -304,7 +304,25 @@ void VirtualMachine::run() {
                 pushValue(value);
                 break;
             }
-
+            case OPCode::STORE_GLOBAL: {
+                Value value = popValue();
+                size_t slot = static_cast<size_t>(inst.operand);
+                if (slot >= globals.size()) {
+                    globals.resize(slot + 1);
+                }
+                globals[slot] = value;
+                break;
+            }
+            case OPCode::LOAD_GLOBAL: {
+                size_t slot = static_cast<size_t>(inst.operand);
+                if (slot >= globals.size()) {
+                    throw RuntimeException("Invalid global variable slot: " + std::to_string(slot));
+                }
+                Value value = globals[slot];
+                pushValue(value);
+                break;
+            }
+            
             // Control flow operations
             case OPCode::JUMP: {
                 ip = static_cast<size_t>(inst.operand);
@@ -321,8 +339,25 @@ void VirtualMachine::run() {
 
             // Function call operations
             case OPCode::CALL: {
+                // Validate operand bounds
+                if (inst.operand < 0 || static_cast<size_t>(inst.operand) >= constants.size()) {
+                    throw RuntimeException("Invalid function constant index: " + std::to_string(inst.operand));
+                }
+
                 Value functionValue = constants[inst.operand];
                 FunctionObject* function = asFunction(functionValue);
+
+                // Validate function pointer
+                if (function == nullptr) {
+                    throw RuntimeException("Invalid function object - null pointer");
+                }
+
+                // CRITICAL: Validate parameter count before proceeding
+                if (stack.size() < static_cast<size_t>(function->parameterCount)) {
+                    throw RuntimeException("Not enough arguments for function call. Expected: " +
+                                         std::to_string(function->parameterCount) +
+                                         ", Got: " + std::to_string(stack.size()));
+                }
 
                 // Create new call frame
                 CallFrame frame;
@@ -330,7 +365,7 @@ void VirtualMachine::run() {
                 frame.constants = constants;
                 frame.locals = locals;
                 frame.returnAddress = ip + 1;
-                frame.stackBase = stack.size() - function->parameterCount; // CAUSES SEGFAULT
+                frame.stackBase = stack.size() - function->parameterCount; // Now safe
 
                 // Push current frame onto call stack
                 callStack.push(frame);
@@ -422,6 +457,8 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::LOAD_BOOL: return "LOAD_BOOL";
         case OPCode::STORE_LOCAL: return "STORE_LOCAL";
         case OPCode::LOAD_LOCAL: return "LOAD_LOCAL";
+        case OPCode::STORE_GLOBAL: return "STORE_GLOBAL";
+        case OPCode::LOAD_GLOBAL: return "LOAD_GLOBAL";
 
         case OPCode::ADD_INT: return "ADD_INT";
         case OPCode::SUB_INT: return "SUB_INT";

@@ -147,6 +147,7 @@ BytecodeCompiler::CompiledProgram BytecodeCompiler::compile(std::unique_ptr<Stat
     instructions.clear();
     constants.clear();
     nextSlot = 0;
+    globalSlot = 0;
     scopeStack.clear();
     scopeStack.push_back({});
 
@@ -250,8 +251,19 @@ ValueType BytecodeCompiler::compileIdentifier(const IdentifierExpression& node) 
     if (it == nullptr) {
         throw RuntimeException("Undefined variable: " + node.name);
     }
+    if (scopeStack.size() == 1) {
+         
+        emit(OPCode::LOAD_GLOBAL, it->slot);
+    } else {
 
-    emit(OPCode::LOAD_LOCAL, it->slot);
+        auto globalIt = scopeStack[0].find(variable);
+        if (globalIt != scopeStack[0].end()) {
+            emit(OPCode::LOAD_GLOBAL, it->slot);
+        } else {
+            emit(OPCode::LOAD_LOCAL, it->slot);
+        }
+    }
+
     currentExpressionType = it->type;
     return it->type;
 }   
@@ -282,35 +294,54 @@ ValueType BytecodeCompiler::compileFunctionCall(const FunctionCall& node) {
         throw RuntimeException("Unknown function: " + node.functionName);
     }
 
-    int functionConstantIndex = it->second;  
-    emit(OPCode::CALL, functionConstantIndex);
+    int functionIndex = it->second;
+    emit(OPCode::CALL, functionIndex);
 
     return ValueType::INT;
 }
 
 void BytecodeCompiler::compileVariableDeclaration(const VariableDeclaration& node) {
     auto variable = node.variable.getValue();
-
     ValueType varType = typeTable.find(node.type.getType())->second;
-
-    VariableInfo info = {nextSlot++, varType};
-    declareVariable(variable, info);
-
-    node.expr->accept(*this);
-    emit(OPCode::STORE_LOCAL, info.slot);
+    // Check if global scope or not
+    if (scopeStack.size() == 1) { 
+        VariableInfo info = {static_cast<int>(globalSlot++), varType};
+        declareVariable(variable, info);
+        node.expr->accept(*this);
+        emit(OPCode::STORE_GLOBAL, info.slot);
+    } else {
+        VariableInfo info = {nextSlot++, varType};
+        declareVariable(variable, info);
+        node.expr->accept(*this);
+        emit(OPCode::STORE_LOCAL, info.slot);
+    }
 }
 
 void BytecodeCompiler::compileAssignment(const Assignment& node) {
     auto variable = node.variable.getValue();
-
     auto it = lookupVariable(variable);
+
     if (it == nullptr) {
         throw RuntimeException("Tried to assign value to un-initialized variable at " +
             std::to_string(node.variable.getLine()) + ":" + std::to_string(node.variable.getColumn()));
     }
 
+
     node.expr->accept(*this);
-    emit(OPCode::STORE_LOCAL, it->slot);
+
+    // If we are in global scope directly reassign it
+    if (scopeStack.size() == 1) {
+        emit(OPCode::STORE_GLOBAL, it->slot);
+    } else {
+        // If we are not in the global scope but the variable in question is
+        // update it
+        auto globalIt = scopeStack[0].find(variable);
+        if (globalIt != scopeStack[0].end()) {
+            emit(OPCode::STORE_GLOBAL, it->slot);
+        } else {
+            emit(OPCode::STORE_LOCAL, it->slot);
+        }
+    }
 }
 
 void BytecodeCompiler::compileIfStatement(const IfStatement& node) {
@@ -363,9 +394,7 @@ void BytecodeCompiler::compileBlockStatement(const BlockStatement& node) {
 }
 
 void BytecodeCompiler::compileFunctionDefinition(const FunctionDefinition& node) {
-    // Save current compilation state first
     auto savedInstructions = std::move(instructions);
-    auto savedConstants = std::move(constants);
     auto savedNextSlot = nextSlot;
 
     // Create function object early for recursive calls
@@ -374,19 +403,17 @@ void BytecodeCompiler::compileFunctionDefinition(const FunctionDefinition& node)
         static_cast<int>(node.parameters.size())
     );
 
-    // Add to function table immediately (with empty instructions for now)
     Value functionValue = createObject(functionObj);
-    savedConstants.push_back(functionValue);  // Add to saved constants
-    int functionConstantIndex = savedConstants.size() - 1;
-    functionTable[node.functionName.getValue()] = functionConstantIndex;
 
     instructions.clear();
-    constants.clear();
+    
     nextSlot = 0;
+
+    int functionConstantIndex = addConstant(functionValue);
+    functionTable[node.functionName.getValue()] = functionConstantIndex;
 
     enterScope();
 
-    // Declare parameters in function scope
     for (const auto& param : node.parameters) {
         VariableInfo paramInfo;
 
@@ -415,26 +442,23 @@ void BytecodeCompiler::compileFunctionDefinition(const FunctionDefinition& node)
         declareVariable(param.name.getValue(), paramInfo);
     }
 
-    // Compile function body
     node.body->accept(*this);
 
     exitScope();
 
-    // Now fill in the function object with compiled instructions
     functionObj->instructions = instructions;
     functionObj->constants = constants;
 
-    // Restore previous compilation state
     instructions = std::move(savedInstructions);
-    constants = std::move(savedConstants);  // This already includes our function
+    nextSlot = savedNextSlot;
+    int mainFunctionIndex = addConstant(functionValue);
+    functionTable[node.functionName.getValue()] = mainFunctionIndex;  
     nextSlot = savedNextSlot;
 }
 
 void BytecodeCompiler::compileReturnStatement(const ReturnStatement& node) {
-    // Compile the return expression (puts value on stack)
     compileExpression(*node.returnValue);
 
-    // Emit RETURN instruction to jump back to caller
     emit(OPCode::RETURN, -1);
 }
 

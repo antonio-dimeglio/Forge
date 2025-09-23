@@ -25,6 +25,7 @@ class VirtualMachine {
         Heap heap;
         size_t ip = 0;
         std::vector<Value> locals;
+        std::vector<Value> globals;
         std::stack<CallFrame> callStack;
 
         void pushValue(Value value);
