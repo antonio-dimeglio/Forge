@@ -116,7 +116,17 @@ void VirtualMachine::run() {
             case OPCode::DIV_INT: {
                 Value right = popValue();
                 Value left = popValue();
-                Value result = createInt(asInt(left) / asInt(right));
+                int rightInt = asInt(right);
+                if (rightInt == 0) {
+                    throw RuntimeException("Division by zero");
+                }
+                Value result = createInt(asInt(left) / rightInt);
+                pushValue(result);
+                break;
+            }
+            case OPCode::NEG_INT: {
+                Value operand = popValue();
+                Value result = createInt(-asInt(operand));
                 pushValue(result);
                 break;
             }
@@ -146,7 +156,17 @@ void VirtualMachine::run() {
             case OPCode::DIV_FLOAT: {
                 Value right = popValue();
                 Value left = popValue();
-                Value result = createFloat(asFloat(left) / asFloat(right));
+                float rightFloat = asFloat(right);
+                if (rightFloat == 0.0f) {
+                    throw RuntimeException("Division by zero");
+                }
+                Value result = createFloat(asFloat(left) / rightFloat);
+                pushValue(result);
+                break;
+            }
+            case OPCode::NEG_FLOAT: {
+                Value operand = popValue();
+                Value result = createFloat(-asFloat(operand));
                 pushValue(result);
                 break;
             }
@@ -176,7 +196,25 @@ void VirtualMachine::run() {
             case OPCode::DIV_DOUBLE: {
                 Value right = popValue();
                 Value left = popValue();
-                Value result = createDouble(asDouble(left) / asDouble(right));
+                double rightDouble = asDouble(right);
+                if (rightDouble == 0.0) {
+                    throw RuntimeException("Division by zero");
+                }
+                Value result = createDouble(asDouble(left) / rightDouble);
+                pushValue(result);
+                break;
+            }
+            case OPCode::NEG_DOUBLE: {
+                Value operand = popValue();
+                Value result = createDouble(-asDouble(operand));
+                pushValue(result);
+                break;
+            }
+
+            // Boolean operations
+            case OPCode::NOT_BOOL: {
+                Value operand = popValue();
+                Value result = createBool(!asBool(operand));
                 pushValue(result);
                 break;
             }
@@ -266,6 +304,43 @@ void VirtualMachine::run() {
                 Value right = popValue();
                 Value left = popValue();
                 Value result = createBool(asDouble(left) >= asDouble(right));
+                pushValue(result);
+                break;
+            }
+
+            // Comparison operations - FLOAT
+            case OPCode::EQ_FLOAT: {
+                Value right = popValue();
+                Value left = popValue();
+                Value result = createBool(asFloat(left) == asFloat(right));
+                pushValue(result);
+                break;
+            }
+            case OPCode::LT_FLOAT: {
+                Value right = popValue();
+                Value left = popValue();
+                Value result = createBool(asFloat(left) < asFloat(right));
+                pushValue(result);
+                break;
+            }
+            case OPCode::GT_FLOAT: {
+                Value right = popValue();
+                Value left = popValue();
+                Value result = createBool(asFloat(left) > asFloat(right));
+                pushValue(result);
+                break;
+            }
+            case OPCode::LEQ_FLOAT: {
+                Value right = popValue();
+                Value left = popValue();
+                Value result = createBool(asFloat(left) <= asFloat(right));
+                pushValue(result);
+                break;
+            }
+            case OPCode::GEQ_FLOAT: {
+                Value right = popValue();
+                Value left = popValue();
+                Value result = createBool(asFloat(left) >= asFloat(right));
                 pushValue(result);
                 break;
             }
@@ -469,31 +544,45 @@ const char* OpCodeToString(OPCode op) {
         case OPCode::SUB_INT: return "SUB_INT";
         case OPCode::MULT_INT: return "MULT_INT";
         case OPCode::DIV_INT: return "DIV_INT";
+        case OPCode::NEG_INT: return "NEG_INT";
 
         case OPCode::ADD_FLOAT: return "ADD_FLOAT";
         case OPCode::SUB_FLOAT: return "SUB_FLOAT";
         case OPCode::MULT_FLOAT: return "MULT_FLOAT";
         case OPCode::DIV_FLOAT: return "DIV_FLOAT";
+        case OPCode::NEG_FLOAT: return "NEG_FLOAT";
 
         case OPCode::ADD_DOUBLE: return "ADD_DOUBLE";
         case OPCode::SUB_DOUBLE: return "SUB_DOUBLE";
         case OPCode::MULT_DOUBLE: return "MULT_DOUBLE";
         case OPCode::DIV_DOUBLE: return "DIV_DOUBLE";
-        
+        case OPCode::NEG_DOUBLE: return "NEG_DOUBLE";
+
+        case OPCode::NOT_BOOL: return "NOT_BOOL";
+
         case OPCode::ADD_STRING: return "ADD_STRING";
         case OPCode::INT_TO_DOUBLE: return "INT_TO_DOUBLE";
         case OPCode::FLOAT_TO_DOUBLE: return "FLOAT_TO_DOUBLE";
+        
 
         case OPCode::EQ_INT: return "EQ_INT";
         case OPCode::LT_INT: return "LT_INT";
         case OPCode::GT_INT: return "GT_INT";
         case OPCode::GEQ_INT: return "GEQ_INT";
         case OPCode::LEQ_INT: return "LEQ_INT";
+
         case OPCode::EQ_DOUBLE: return "EQ_DOUBLE";
         case OPCode::LT_DOUBLE: return "LT_DOUBLE";
         case OPCode::GT_DOUBLE: return "GT_DOUBLE";
         case OPCode::LEQ_DOUBLE: return "LEQ_DOUBLE";
         case OPCode::GEQ_DOUBLE: return "GEQ_DOUBLE";
+
+        case OPCode::EQ_FLOAT: return "EQ_FLOAT";
+        case OPCode::LT_FLOAT: return "LT_FLOAT";
+        case OPCode::GT_FLOAT: return "GT_FLOAT";
+        case OPCode::GEQ_FLOAT: return "GEQ_FLOAT";
+        case OPCode::LEQ_FLOAT: return "LEQ_FLOAT";
+
         case OPCode::EQ_BOOL: return "EQ_BOOL";
         case OPCode::EQ_STRING: return "EQ_STRING";
 
