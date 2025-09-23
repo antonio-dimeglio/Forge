@@ -63,6 +63,9 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     if (currentType == TokenType::RETURN) {
         return parseReturnStatement();
     }
+    if (currentType == TokenType::LBRACE) {
+        return std::unique_ptr<Statement>(parseBlockStatement().release());
+    }
     if (currentType == TokenType::IDENTIFIER) {
         if (nextType == TokenType::COLON) {
             return parseVariableDeclaration();
