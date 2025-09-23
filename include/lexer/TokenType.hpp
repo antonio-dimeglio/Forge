@@ -15,11 +15,11 @@ enum class TokenType {
 
     // Keywords
     IF, ELSE, WHILE, FOR, DEF, RETURN,
-    INT, STR, BOOL, FLOAT, DOUBLE,
+    INT, STR, BOOL, FLOAT, DOUBLE, ARRAY,
 
     // Punctuation
     LPAREN, RPAREN, LBRACE, RBRACE, LSQUARE, RSQUARE,
-    COMMA, COLON,
+    COMMA, COLON, DOT,
 
     // Special
     IDENTIFIER, NEWLINE, END_OF_FILE
@@ -87,6 +87,8 @@ inline std::string tokenTypeToString(TokenType tt) {
             return "FLOAT";
         case TokenType::DOUBLE:
             return "DOUBLE";
+        case TokenType::ARRAY:
+            return "ARRAY";
         case TokenType::LOGIC_AND:
             return "LOGIC_AND";
         case TokenType::BITWISE_AND:
@@ -118,6 +120,8 @@ inline std::string tokenTypeToString(TokenType tt) {
             return "COMMA";
         case TokenType::COLON:
             return "COLON";
+        case TokenType::DOT:
+            return "DOT";
 
         case TokenType::IDENTIFIER:
             return "IDENTIFIER";

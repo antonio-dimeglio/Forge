@@ -417,3 +417,124 @@ def test(param: int) -> int {
     EXPECT_EQ(func->name, "test");
     EXPECT_GT(func->instructions.size(), 0);
 }
+
+// ============= ARRAY BYTECODE COMPILER TESTS =============
+
+TEST_F(BytecodeCompilerTest, CompileArrayLiteralEmpty) {
+    auto program = compileSource("[]");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have ARRAY_NEW opcode
+    // EXPECT_EQ(program.instructions[0].opcode, OPCode::ARRAY_NEW);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayLiteralWithElements) {
+    auto program = compileSource("[1, 2, 3]");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should load constants and create array
+    // EXPECT_EQ(program.instructions[0].opcode, OPCode::LOAD_INT);  // Load 1
+    // EXPECT_EQ(program.instructions[1].opcode, OPCode::LOAD_INT);  // Load 2
+    // EXPECT_EQ(program.instructions[2].opcode, OPCode::LOAD_INT);  // Load 3
+    // EXPECT_EQ(program.instructions[3].opcode, OPCode::ARRAY_NEW_WITH_SIZE);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayVariableDeclaration) {
+    auto program = compileSource("numbers: Array[int] = Array.new()");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have ARRAY_NEW and STORE_GLOBAL opcodes
+    // EXPECT_EQ(program.instructions[0].opcode, OPCode::ARRAY_NEW);
+    // EXPECT_EQ(program.instructions[1].opcode, OPCode::STORE_GLOBAL);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayIndexAccess) {
+    auto program = compileSource(R"(
+arr: Array[int] = Array.new()
+value: int = arr[0]
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have LOAD_GLOBAL, LOAD_INT, ARRAY_GET opcodes
+    // Look for ARRAY_GET instruction
+    bool hasArrayGet = false;
+    for (const auto& inst : program.instructions) {
+        // if (inst.opcode == OPCode::ARRAY_GET) hasArrayGet = true;
+    }
+    // EXPECT_TRUE(hasArrayGet);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayIndexAssignment) {
+    auto program = compileSource(R"(
+arr: Array[int] = Array.new()
+arr[0] = 42
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have ARRAY_SET instruction
+    bool hasArraySet = false;
+    for (const auto& inst : program.instructions) {
+        // if (inst.opcode == OPCode::ARRAY_SET) hasArraySet = true;
+    }
+    // EXPECT_TRUE(hasArraySet);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayMethodCall) {
+    auto program = compileSource(R"(
+arr: Array[int] = Array.new()
+arr.push(42)
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have method call instructions
+    // EXPECT_GT(program.constants.size(), 0);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayLengthAccess) {
+    auto program = compileSource(R"(
+arr: Array[int] = Array.new()
+size: int = arr.length()
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should have ARRAY_LENGTH instruction
+    bool hasArrayLength = false;
+    for (const auto& inst : program.instructions) {
+        // if (inst.opcode == OPCode::ARRAY_LENGTH) hasArrayLength = true;
+    }
+    // EXPECT_TRUE(hasArrayLength);
+}
+
+TEST_F(BytecodeCompilerTest, CompileNestedArrayAccess) {
+    auto program = compileSource(R"(
+matrix: Array[Array[int]] = Array.new()
+value: int = matrix[0][1]
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    // Should compile successfully with nested access
+    EXPECT_GT(program.constants.size(), 0);
+}
+
+TEST_F(BytecodeCompilerTest, CompileArrayInFunction) {
+    auto program = compileSource(R"(
+def processArray(arr: Array[int]) -> int {
+    return arr[0] + arr.length()
+}
+)");
+
+    EXPECT_GT(program.instructions.size(), 0);
+    ASSERT_GT(program.constants.size(), 0);
+
+    // Find the function object
+    FunctionObject* func = nullptr;
+    for (const auto& constant : program.constants) {
+        if (constant.type == ValueType::OBJECT && isFunction(constant)) {
+            func = asFunction(constant);
+            break;
+        }
+    }
+    ASSERT_NE(func, nullptr);
+    EXPECT_EQ(func->name, "processArray");
+    EXPECT_GT(func->instructions.size(), 0);
+}

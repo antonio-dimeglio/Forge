@@ -34,6 +34,14 @@ enum class OPCode {
     // Function calls
     CALL, RETURN,
 
+    // Array operations
+    ARRAY_NEW,          // Create new empty array
+    ARRAY_GET,          // Get element at index: arr[i]
+    ARRAY_SET,          // Set element at index: arr[i] = value
+    ARRAY_LENGTH,       // Get array length: arr.length
+    ARRAY_PUSH,         // Push element to end of array: arr.push(value)
+    ARRAY_POP,          // Pop element from end of array: arr.pop()
+
     HALT
 };
 

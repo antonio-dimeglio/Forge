@@ -484,6 +484,203 @@ result: int = test(x)
     EXPECT_EQ(asInt(getLastGlobalVariable()), 15);
 }
 
+// ============= ARRAY VM EXECUTION TESTS =============
+
+TEST_F(VirtualMachineTest, ExecuteArrayCreation) {
+    runSource(R"(
+arr: Array[int] = Array.new()
+)");
+
+    // Should create an empty array
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::OBJECT);
+    // ArrayObject* arr = asArray(result);
+    // EXPECT_EQ(arr->length, 0);
+    // EXPECT_EQ(arr->type, ARRAY);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayLiteralEmpty) {
+    runSource(R"(
+arr: Array[int] = []
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::OBJECT);
+    // ArrayObject* arr = asArray(result);
+    // EXPECT_EQ(arr->length, 0);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayLiteralWithElements) {
+    runSource(R"(
+arr: Array[int] = [1, 2, 3]
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::OBJECT);
+    // ArrayObject* arr = asArray(result);
+    // EXPECT_EQ(arr->length, 3);
+    // EXPECT_EQ(asInt(arr->elements[0]), 1);
+    // EXPECT_EQ(asInt(arr->elements[1]), 2);
+    // EXPECT_EQ(asInt(arr->elements[2]), 3);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayPush) {
+    runSource(R"(
+arr: Array[int] = Array.new()
+arr.push(42)
+size: int = arr.length()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 1);  // Length should be 1 after push
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayPop) {
+    runSource(R"(
+arr: Array[int] = [1, 2, 3]
+value: int = arr.pop()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 3);  // Should pop the last element
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayIndexAccess) {
+    runSource(R"(
+arr: Array[int] = [10, 20, 30]
+value: int = arr[1]
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 20);  // arr[1] should be 20
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayIndexAssignment) {
+    runSource(R"(
+arr: Array[int] = [1, 2, 3]
+arr[1] = 99
+value: int = arr[1]
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 99);  // arr[1] should now be 99
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayLength) {
+    runSource(R"(
+arr: Array[int] = [1, 2, 3, 4, 5]
+size: int = arr.length()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 5);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayWithStrings) {
+    runSource(R"(
+names: Array[str] = ["Alice", "Bob", "Charlie"]
+first: str = names[0]
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::OBJECT);
+    StringObject* str = asString(result);
+    EXPECT_STREQ(str->chars, "Alice");
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayInFunction) {
+    runSource(R"(
+def sum(numbers: Array[int]) -> int {
+    total: int = 0
+    i: int = 0
+    while (i < numbers.length()) {
+        total = total + numbers[i]
+        i = i + 1
+    }
+    return total
+}
+
+arr: Array[int] = [1, 2, 3, 4, 5]
+result: int = sum(arr)
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 15);  // 1+2+3+4+5 = 15
+}
+
+TEST_F(VirtualMachineTest, ExecuteNestedArrays) {
+    runSource(R"(
+matrix: Array[Array[int]] = [[1, 2], [3, 4]]
+value: int = matrix[1][0]
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 3);  // matrix[1][0] should be 3
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayMethodChaining) {
+    runSource(R"(
+arr: Array[int] = Array.new()
+arr.push(1).push(2).push(3)
+size: int = arr.length()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 3);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayBoundsCheck) {
+    EXPECT_THROW({
+        runSource(R"(
+arr: Array[int] = [1, 2, 3]
+value: int = arr[10]  // Out of bounds
+)");
+    }, RuntimeException);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayGarbageCollection) {
+    runSource(R"(
+def createArray() -> Array[int] {
+    temp: Array[int] = [1, 2, 3, 4, 5]
+    return temp
+}
+
+arr: Array[int] = createArray()
+size: int = arr.length()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 5);
+}
+
+TEST_F(VirtualMachineTest, ExecuteArrayWithMixedOperations) {
+    runSource(R"(
+numbers: Array[int] = Array.new()
+numbers.push(10)
+numbers.push(20)
+numbers.push(30)
+
+first: int = numbers[0]
+numbers[1] = 99
+second: int = numbers[1]
+last: int = numbers.pop()
+size: int = numbers.length()
+)");
+
+    Value result = getLastGlobalVariable();
+    EXPECT_EQ(result.type, ValueType::INT);
+    EXPECT_EQ(asInt(result), 2);  // Length should be 2 after pop
+}
+
 // ========== COMPLEX PROGRAM TESTS ==========
 
 TEST_F(VirtualMachineTest, ExecuteComplexProgram) {

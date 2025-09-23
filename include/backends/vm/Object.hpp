@@ -7,7 +7,8 @@
 
 enum ObjectType {
     STRING,
-    FUNCTION
+    FUNCTION,
+    ARRAY
 };
 
 struct Object {
@@ -23,15 +24,22 @@ struct StringObject : Object {
 
 struct FunctionObject : Object {
     std::string name;
-    int parameterCount; 
+    int parameterCount;
     std::vector<Instruction> instructions;
     std::vector<Value> constants;
 };
 
+struct ArrayObject : Object {
+    std::vector<Value> elements;
+    size_t length;
+};
+
 bool isString(Value val);
 bool isFunction(Value val);
+bool isArray(Value val);
 
 StringObject* asString(Value val);
 FunctionObject* asFunction(Value val);
+ArrayObject* asArray(Value val);
 
 std::string objectToString(Object* obj);

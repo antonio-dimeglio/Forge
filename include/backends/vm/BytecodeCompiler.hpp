@@ -38,9 +38,13 @@ class BytecodeCompiler {
         ValueType compileUnary(const UnaryExpression& node);
         ValueType compileIdentifier(const IdentifierExpression& node);
         ValueType compileFunctionCall(const FunctionCall& node);
+        ValueType compileArrayLiteral(const ArrayLiteralExpression& node);
+        ValueType compileIndexAccess(const IndexAccessExpression& node);
+        ValueType compileMemberAccess(const MemberAccessExpression& node);
 
         void compileVariableDeclaration(const VariableDeclaration& node);
         void compileAssignment(const Assignment& node);
+        void compileIndexAssignment(const IndexAssignment& node);
         void compileIfStatement(const IfStatement& node);
         void compileWhileStatement(const WhileStatement& node);
         void compileFunctionDefinition(const FunctionDefinition &node);

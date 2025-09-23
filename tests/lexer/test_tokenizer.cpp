@@ -632,9 +632,6 @@ TEST_F(TokenizerTest, NumberAtEndOfInput) {
 }
 
 TEST_F(TokenizerTest, DotEdgeCases) {
-    EXPECT_THROW(tokenize(".."), InvalidSyntaxException);
-    EXPECT_THROW(tokenize("..."), InvalidSyntaxException);
-
     auto tokens = tokenize(".5 + 5.");
     ASSERT_EQ(tokens.size(), 4);
     expectToken(tokens[0], TokenType::NUMBER, ".5");
@@ -1174,4 +1171,138 @@ TEST_F(TokenizerTest, KeywordBoundaryEdgeCases) {
     expectToken(tokens[4], TokenType::IDENTIFIER, "defined");
     expectToken(tokens[5], TokenType::IDENTIFIER, "returned");
     expectToken(tokens[6], TokenType::END_OF_FILE);
+}
+
+// ============= ARRAY LEXER TESTS =============
+
+TEST_F(TokenizerTest, ArrayTypeDeclaration) {
+    auto tokens = tokenize("Array[int]");
+    ASSERT_EQ(tokens.size(), 5);
+    expectToken(tokens[0], TokenType::ARRAY, "Array");
+    expectToken(tokens[1], TokenType::LSQUARE);
+    expectToken(tokens[2], TokenType::INT);
+    expectToken(tokens[3], TokenType::RSQUARE);
+    expectToken(tokens[4], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayLiteralEmpty) {
+    auto tokens = tokenize("[]");
+    ASSERT_EQ(tokens.size(), 3);
+    expectToken(tokens[0], TokenType::LSQUARE);
+    expectToken(tokens[1], TokenType::RSQUARE);
+    expectToken(tokens[2], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayLiteralWithNumbers) {
+    auto tokens = tokenize("[1, 2, 3]");
+    ASSERT_EQ(tokens.size(), 8);
+    expectToken(tokens[0], TokenType::LSQUARE);
+    expectToken(tokens[1], TokenType::NUMBER, "1");
+    expectToken(tokens[2], TokenType::COMMA);
+    expectToken(tokens[3], TokenType::NUMBER, "2");
+    expectToken(tokens[4], TokenType::COMMA);
+    expectToken(tokens[5], TokenType::NUMBER, "3");
+    expectToken(tokens[6], TokenType::RSQUARE);
+    expectToken(tokens[7], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayLiteralWithStrings) {
+    auto tokens = tokenize("[\"hello\", \"world\"]");
+    ASSERT_EQ(tokens.size(), 6);
+    expectToken(tokens[0], TokenType::LSQUARE);
+    expectToken(tokens[1], TokenType::STRING, "hello");
+    expectToken(tokens[2], TokenType::COMMA);
+    expectToken(tokens[3], TokenType::STRING, "world");
+    expectToken(tokens[4], TokenType::RSQUARE);
+    expectToken(tokens[5], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayIndexAccess) {
+    auto tokens = tokenize("arr[0]");
+    ASSERT_EQ(tokens.size(), 5);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "arr");
+    expectToken(tokens[1], TokenType::LSQUARE);
+    expectToken(tokens[2], TokenType::NUMBER, "0");
+    expectToken(tokens[3], TokenType::RSQUARE);
+    expectToken(tokens[4], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, NestedArrayTypes) {
+    auto tokens = tokenize("Array[Array[int]]");
+    ASSERT_EQ(tokens.size(), 8);
+    expectToken(tokens[0], TokenType::ARRAY, "Array");
+    expectToken(tokens[1], TokenType::LSQUARE);
+    expectToken(tokens[2], TokenType::ARRAY, "Array");
+    expectToken(tokens[3], TokenType::LSQUARE);
+    expectToken(tokens[4], TokenType::INT);
+    expectToken(tokens[5], TokenType::RSQUARE);
+    expectToken(tokens[6], TokenType::RSQUARE);
+    expectToken(tokens[7], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayVariableDeclaration) {
+    auto tokens = tokenize("numbers: Array[int] = Array.new()");
+    ASSERT_EQ(tokens.size(), 13);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "numbers");
+    expectToken(tokens[1], TokenType::COLON);
+    expectToken(tokens[2], TokenType::ARRAY, "Array");
+    expectToken(tokens[3], TokenType::LSQUARE);
+    expectToken(tokens[4], TokenType::INT);
+    expectToken(tokens[5], TokenType::RSQUARE);
+    expectToken(tokens[6], TokenType::ASSIGN);
+    expectToken(tokens[7], TokenType::ARRAY, "Array");
+    expectToken(tokens[8], TokenType::DOT);
+    expectToken(tokens[9], TokenType::IDENTIFIER, "new");
+    expectToken(tokens[10], TokenType::LPAREN, "(");
+    expectToken(tokens[11], TokenType::RPAREN, ")");
+}
+
+TEST_F(TokenizerTest, ArrayMethodCalls) {
+    auto tokens = tokenize("numbers.push(42)");
+    ASSERT_EQ(tokens.size(), 7);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "numbers");
+    expectToken(tokens[1], TokenType::DOT);
+    expectToken(tokens[2], TokenType::IDENTIFIER, "push");
+    expectToken(tokens[3], TokenType::LPAREN);
+    expectToken(tokens[4], TokenType::NUMBER, "42");
+    expectToken(tokens[5], TokenType::RPAREN);
+    expectToken(tokens[6], TokenType::END_OF_FILE);
+}
+
+TEST_F(TokenizerTest, ArrayMethodChaining) {
+    auto tokens = tokenize("arr.push(1).push(2).length()");
+    ASSERT_EQ(tokens.size(), 16);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "arr");
+    expectToken(tokens[1], TokenType::DOT);
+    expectToken(tokens[2], TokenType::IDENTIFIER, "push");
+    expectToken(tokens[3], TokenType::LPAREN);
+    expectToken(tokens[4], TokenType::NUMBER, "1");
+    expectToken(tokens[5], TokenType::RPAREN);
+    expectToken(tokens[6], TokenType::DOT);
+    expectToken(tokens[7], TokenType::IDENTIFIER, "push");
+    expectToken(tokens[8], TokenType::LPAREN);
+    expectToken(tokens[9], TokenType::NUMBER, "2");
+    expectToken(tokens[10], TokenType::RPAREN);
+    expectToken(tokens[11], TokenType::DOT);
+    expectToken(tokens[12], TokenType::IDENTIFIER, "length");
+    expectToken(tokens[13], TokenType::LPAREN);
+    expectToken(tokens[14], TokenType::RPAREN);
+}
+
+TEST_F(TokenizerTest, ComplexArrayExpression) {
+    auto tokens = tokenize("matrix[i][j] = arr[0] + 5");
+    ASSERT_EQ(tokens.size(), 15);
+    expectToken(tokens[0], TokenType::IDENTIFIER, "matrix");
+    expectToken(tokens[1], TokenType::LSQUARE);
+    expectToken(tokens[2], TokenType::IDENTIFIER, "i");
+    expectToken(tokens[3], TokenType::RSQUARE);
+    expectToken(tokens[4], TokenType::LSQUARE);
+    expectToken(tokens[5], TokenType::IDENTIFIER, "j");
+    expectToken(tokens[6], TokenType::RSQUARE);
+    expectToken(tokens[7], TokenType::ASSIGN);
+    expectToken(tokens[8], TokenType::IDENTIFIER, "arr");
+    expectToken(tokens[9], TokenType::LSQUARE);
+    expectToken(tokens[10], TokenType::NUMBER, "0");
+    expectToken(tokens[11], TokenType::RSQUARE);
+    expectToken(tokens[12], TokenType::PLUS);
 }

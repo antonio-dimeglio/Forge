@@ -20,6 +20,7 @@ class Heap {
 
         StringObject* allocateString(const std::string& str);
         FunctionObject* allocateFunction(const std::string& name, int paramCount);
+        ArrayObject* allocateArray();
 
         void collect();
         void markVMRoots();

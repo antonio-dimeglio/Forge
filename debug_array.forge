@@ -1,0 +1,2 @@
+arr: Array[int] = [1, 2, 3]
+arr[1] = 99

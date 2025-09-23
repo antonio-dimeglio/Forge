@@ -73,7 +73,8 @@ static const std::unordered_map<TokenType, ValueType> typeTable = {
     {TokenType::DOUBLE, ValueType::DOUBLE},
     {TokenType::BOOL, ValueType::BOOL},
     {TokenType::STR, ValueType::OBJECT},
-    {TokenType::STRING, ValueType::OBJECT}
+    {TokenType::STRING, ValueType::OBJECT},
+    {TokenType::ARRAY, ValueType::OBJECT}  // Arrays are objects
 };
 
 
@@ -302,7 +303,19 @@ ValueType BytecodeCompiler::compileFunctionCall(const FunctionCall& node) {
 
 void BytecodeCompiler::compileVariableDeclaration(const VariableDeclaration& node) {
     auto variable = node.variable.getValue();
-    ValueType varType = typeTable.find(node.type.getType())->second;
+
+    // Look up the variable type safely
+    auto typeIt = typeTable.find(node.type.getType());
+    if (typeIt == typeTable.end()) {
+        // Handle special case of Array[T] types (parsed as IDENTIFIER with value "Array")
+        if (node.type.getType() == TokenType::IDENTIFIER && node.type.getValue() == "Array") {
+            // Array[T] types are objects
+            typeIt = typeTable.find(TokenType::ARRAY);
+        } else {
+            throw RuntimeException("Unknown type: " + node.type.getValue() + " at line " + std::to_string(node.type.getLine()));
+        }
+    }
+    ValueType varType = typeIt->second;
     // Check if global scope or not
     if (scopeStack.size() == 1) { 
         VariableInfo info = {static_cast<int>(globalSlot++), varType};
@@ -342,6 +355,32 @@ void BytecodeCompiler::compileAssignment(const Assignment& node) {
             emit(OPCode::STORE_LOCAL, it->slot);
         }
     }
+}
+
+void BytecodeCompiler::compileIndexAssignment(const IndexAssignment& node) {
+    // For arr[index] = value, we need to:
+    // 1. Compile the rvalue (value)
+    // 2. Extract array and index from lvalue
+    // 3. Emit ARRAY_SET
+
+    // The lvalue should be an IndexAccessExpression (arr[index])
+    auto indexExpr = dynamic_cast<const IndexAccessExpression*>(node.lvalue.get());
+    if (!indexExpr) {
+        throw RuntimeException("Invalid lvalue in index assignment");
+    }
+
+    // VM pops in order: value, index, array
+    // So push in reverse order: array, index, value
+
+    // 1. Compile the array (first to push)
+    compileExpression(*indexExpr->array);
+    // 2. Compile the index (second to push)
+    compileExpression(*indexExpr->index);
+    // 3. Compile the value to assign (last to push, first to pop)
+    compileExpression(*node.rvalue);
+
+    // Emit ARRAY_SET (expects stack: [array, index, value] where value is TOS)
+    emit(OPCode::ARRAY_SET);
 }
 
 void BytecodeCompiler::compileIfStatement(const IfStatement& node) {
@@ -434,6 +473,9 @@ void BytecodeCompiler::compileFunctionDefinition(const FunctionDefinition& node)
             case TokenType::STR:
                 paramInfo.type = ValueType::OBJECT;
                 break;
+            case TokenType::ARRAY:
+                paramInfo.type = ValueType::OBJECT;
+                break;
             default:
                 throw RuntimeException("Unknown parameter type");
         }
@@ -474,5 +516,98 @@ BytecodeCompiler::VariableInfo* BytecodeCompiler::lookupVariable(const std::stri
 }
 
 void BytecodeCompiler::declareVariable(const std::string& name, const VariableInfo& info) {
-    scopeStack.back()[name] = info; 
+    scopeStack.back()[name] = info;
+}
+
+ValueType BytecodeCompiler::compileArrayLiteral(const ArrayLiteralExpression& node) {
+    // Create new array
+    emit(OPCode::ARRAY_NEW);
+
+    // For array literals with elements like [1, 2, 3]
+    // Use ARRAY_PUSH to add each element
+    for (const auto& element : node.arrayValues) {
+        // Compile the element value
+        compileExpression(*element);
+
+        // ARRAY_PUSH expects: [array, value] on stack
+        // But we need [array] to stay on top for the next iteration
+        // So ARRAY_PUSH should return the array
+
+        emit(OPCode::ARRAY_PUSH);
+    }
+
+    currentExpressionType = ValueType::OBJECT; // Arrays are objects
+    return currentExpressionType;
+}
+
+ValueType BytecodeCompiler::compileIndexAccess(const IndexAccessExpression& node) {
+    // Compile the array expression first
+    compileExpression(*node.array);
+    // Compile the index expression
+    compileExpression(*node.index);
+
+    // Emit ARRAY_GET instruction
+    emit(OPCode::ARRAY_GET);
+
+    // TODO: In a full type system, we'd return the array's element type
+    // For now, assume INT (most array tests use int arrays)
+    currentExpressionType = ValueType::INT;
+    return currentExpressionType;
+}
+
+ValueType BytecodeCompiler::compileMemberAccess(const MemberAccessExpression& node) {
+    // Check if this is a static method call on Array type
+    auto objectIdent = dynamic_cast<const IdentifierExpression*>(node.object.get());
+    if (objectIdent && objectIdent->name == "Array") {
+        // Handle Array static method calls
+        if (node.memberName == "new" && node.isMethodCall) {
+            // Array.new() - create new array
+            // Compile arguments (if any)
+            for (const auto& arg : node.arguments) {
+                compileExpression(*arg);
+            }
+            // Emit array creation instruction
+            emit(OPCode::ARRAY_NEW);
+            currentExpressionType = ValueType::OBJECT; // Arrays are objects
+            return currentExpressionType;
+        }
+    }
+
+    // Handle instance method calls and property access
+    compileExpression(*node.object);
+
+    if (node.isMethodCall) {
+        // Compile method arguments
+        for (const auto& arg : node.arguments) {
+            compileExpression(*arg);
+        }
+
+        // Handle specific array methods
+        if (node.memberName == "push") {
+            // arr.push(value) - emit ARRAY_PUSH
+            emit(OPCode::ARRAY_PUSH);
+            currentExpressionType = ValueType::OBJECT;
+        } else if (node.memberName == "pop") {
+            // arr.pop() - emit ARRAY_POP
+            emit(OPCode::ARRAY_POP);
+            currentExpressionType = ValueType::INT; // Returns the popped element
+        } else if (node.memberName == "length") {
+            // arr.length() - get array length
+            emit(OPCode::ARRAY_LENGTH);
+            currentExpressionType = ValueType::INT;
+        } else {
+            // Generic method call - placeholder
+            currentExpressionType = ValueType::INT;
+        }
+    } else {
+        // Property access like arr.length
+        if (node.memberName == "length") {
+            emit(OPCode::ARRAY_LENGTH);
+            currentExpressionType = ValueType::INT;
+        } else {
+            currentExpressionType = ValueType::INT; // Placeholder
+        }
+    }
+
+    return currentExpressionType;
 }

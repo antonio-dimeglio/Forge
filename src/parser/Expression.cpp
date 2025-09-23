@@ -63,3 +63,64 @@ std::string FunctionCall::toString(int indent) const {
     // Later you can add argument printing
     return ss.str();
 }
+
+// ============= NEW ARRAY EXPRESSION IMPLEMENTATIONS =============
+
+void ArrayLiteralExpression::accept(BytecodeCompiler& compiler) const {
+    compiler.compileArrayLiteral(*this);
+}
+
+std::string ArrayLiteralExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "ArrayLiteral: [";
+    if (!arrayValues.empty()) {
+        ss << "\n";
+        for (size_t i = 0; i < arrayValues.size(); ++i) {
+            ss << arrayValues[i]->toString(indent + 1);
+            if (i < arrayValues.size() - 1) {
+                ss << ",\n";
+            } else {
+                ss << "\n";
+            }
+        }
+        ss << makeIndent(indent) << "]";
+    } else {
+        ss << "]";
+    }
+    return ss.str();
+}
+
+void IndexAccessExpression::accept(BytecodeCompiler& compiler) const {
+    compiler.compileIndexAccess(*this);
+}
+
+std::string IndexAccessExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "IndexAccess:\n";
+    ss << makeIndent(indent + 1) << "Array:\n" << array->toString(indent + 2) << "\n";
+    ss << makeIndent(indent + 1) << "Index:\n" << index->toString(indent + 2);
+    return ss.str();
+}
+
+void MemberAccessExpression::accept(BytecodeCompiler& compiler) const {
+    compiler.compileMemberAccess(*this);
+}
+
+std::string MemberAccessExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "MemberAccess: " << memberName;
+    if (isMethodCall) {
+        ss << "()";
+    }
+    ss << "\n";
+    ss << makeIndent(indent + 1) << "Object:\n" << object->toString(indent + 2);
+
+    if (isMethodCall && !arguments.empty()) {
+        ss << "\n" << makeIndent(indent + 1) << "Arguments:";
+        for (size_t i = 0; i < arguments.size(); ++i) {
+            ss << "\n" << arguments[i]->toString(indent + 2);
+        }
+    }
+
+    return ss.str();
+}

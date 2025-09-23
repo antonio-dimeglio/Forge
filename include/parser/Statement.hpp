@@ -62,6 +62,18 @@ class Assignment: public Statement {
         std::string toString(int indent = 0) const override;
 };
 
+class IndexAssignment: public Statement {
+    public:
+        std::unique_ptr<Expression> lvalue;  // The array[index] expression
+        std::unique_ptr<Expression> rvalue;  // The value to assign
+        IndexAssignment(
+            std::unique_ptr<Expression> lvalue,
+            std::unique_ptr<Expression> rvalue
+        ) : lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
 class BlockStatement : public Statement {
 public:
     std::vector<std::unique_ptr<Statement>> statements;

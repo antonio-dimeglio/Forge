@@ -28,21 +28,28 @@ Expression* parseExpressionRaw(const std::string& input) {
 
 // For tests that expect unique_ptr
 std::unique_ptr<Expression> parseExpression(const std::string& input) {
-    // Parse the statement and extract the expression safely
-    auto stmt = parseStatement(input);
-    auto program = dynamic_cast<Program*>(stmt.get());
-    if (!program || program->statements.empty()) return nullptr;
+    Tokenizer tokenizer(input);
+    std::vector<Token> tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    return parser.parseExpression();
+}
 
-    // For single expression tests, we should have exactly one statement
-    if (program->statements.size() != 1) {
-        throw std::runtime_error("Expected single expression, got multiple statements");
+// Strict version that checks for complete consumption (for specific error tests)
+std::unique_ptr<Expression> parseExpressionStrict(const std::string& input) {
+    Tokenizer tokenizer(input);
+    std::vector<Token> tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    auto expr = parser.parseExpression();
+
+    // Check for unexpected remaining tokens (should be at END_OF_FILE)
+    if (!parser.isAtEnd() && parser.getCurrentToken().getType() != TokenType::END_OF_FILE) {
+        Token current = parser.getCurrentToken();
+        throw ParsingException("Unexpected token after expression: " + current.getValue(),
+                              current.getLine(),
+                              current.getColumn());
     }
 
-    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements[0].get());
-    if (!exprStmt) return nullptr;
-
-    // Move the expression out of the statement (transfer ownership)
-    return std::move(exprStmt->expression);
+    return expr;
 }
 
 // Helper function to get tokens for manual testing
@@ -593,7 +600,7 @@ TEST_F(ParserTest, ParseUnmatchedLeftParen) {
 }
 
 TEST_F(ParserTest, ParseUnmatchedRightParen) {
-    EXPECT_THROW(parseExpression("2 + 3)"), std::exception);
+    EXPECT_THROW(parseExpressionStrict("2 + 3)"), std::exception);
 }
 
 TEST_F(ParserTest, ParseEmptyParentheses) {
@@ -606,8 +613,8 @@ TEST_F(ParserTest, ParseMissingOperand) {
 }
 
 TEST_F(ParserTest, ParseInvalidTokenSequence) {
-    EXPECT_THROW(parseExpression("2 3"), std::exception);
-    EXPECT_THROW(parseExpression("+ +"), std::exception);
+    EXPECT_THROW(parseExpressionStrict("2 3"), std::exception);
+    EXPECT_THROW(parseExpressionStrict("+ +"), std::exception);
 }
 
 // ===== UNARY EDGE CASES =====
@@ -1336,4 +1343,75 @@ TEST_F(ParserTest, ParseBitwiseXorAssociativity) {
     auto rightId = dynamic_cast<IdentifierExpression*>(outerXor->right.get());
     ASSERT_NE(rightId, nullptr);
     EXPECT_EQ(rightId->name, "c");
+}
+
+// ============= ARRAY PARSER TESTS =============
+
+TEST_F(ParserTest, ParseArrayLiteralEmpty) {
+    auto expr = parseExpression("[]");
+
+    ASSERT_NE(expr, nullptr);
+    auto arrayLit = dynamic_cast<ArrayLiteralExpression*>(expr.get());
+    ASSERT_NE(arrayLit, nullptr);
+    EXPECT_EQ(arrayLit->arrayValues.size(), 0);
+}
+
+TEST_F(ParserTest, ParseArrayLiteralWithElements) {
+    auto expr = parseExpression("[1, 2, 3]");
+
+    ASSERT_NE(expr, nullptr);
+    auto arrayLit = dynamic_cast<ArrayLiteralExpression*>(expr.get());
+    ASSERT_NE(arrayLit, nullptr);
+    EXPECT_EQ(arrayLit->arrayValues.size(), 3);
+}
+
+TEST_F(ParserTest, ParseArrayIndexAccess) {
+    auto expr = parseExpression("arr[0]");
+
+    ASSERT_NE(expr, nullptr);
+    auto indexAccess = dynamic_cast<IndexAccessExpression*>(expr.get());
+    ASSERT_NE(indexAccess, nullptr);
+
+    auto arrId = dynamic_cast<IdentifierExpression*>(indexAccess->array.get());
+    ASSERT_NE(arrId, nullptr);
+    EXPECT_EQ(arrId->name, "arr");
+}
+
+TEST_F(ParserTest, ParseArrayMethodCall) {
+    auto expr = parseExpression("arr.push(42)");
+
+    ASSERT_NE(expr, nullptr);
+    auto memberAccess = dynamic_cast<MemberAccessExpression*>(expr.get());
+    ASSERT_NE(memberAccess, nullptr);
+    EXPECT_EQ(memberAccess->memberName, "push");
+    EXPECT_TRUE(memberAccess->isMethodCall);
+    EXPECT_EQ(memberAccess->arguments.size(), 1);
+}
+
+
+TEST_F(ParserTest, ParseNestedArrayAccess) {
+    auto expr = parseExpression("matrix[i][j]");
+
+    ASSERT_NE(expr, nullptr);
+    // Will need nested IndexAccessExpression
+    auto outerAccess = dynamic_cast<IndexAccessExpression*>(expr.get());
+    ASSERT_NE(outerAccess, nullptr);
+
+    auto innerAccess = dynamic_cast<IndexAccessExpression*>(outerAccess->array.get());
+    ASSERT_NE(innerAccess, nullptr);
+}
+
+TEST_F(ParserTest, ParseChainedMethodCalls) {
+    auto expr = parseExpression("arr.push(1).push(2)");
+
+    ASSERT_NE(expr, nullptr);
+    auto outerCall = dynamic_cast<MemberAccessExpression*>(expr.get());
+    ASSERT_NE(outerCall, nullptr);
+    EXPECT_EQ(outerCall->memberName, "push");
+    EXPECT_TRUE(outerCall->isMethodCall);
+
+    auto innerCall = dynamic_cast<MemberAccessExpression*>(outerCall->object.get());
+    ASSERT_NE(innerCall, nullptr);
+    EXPECT_EQ(innerCall->memberName, "push");
+    EXPECT_TRUE(innerCall->isMethodCall);
 }

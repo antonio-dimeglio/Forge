@@ -511,6 +511,96 @@ void VirtualMachine::run() {
                 break;
             }
 
+            case OPCode::ARRAY_NEW: {
+                ArrayObject* arr = heap.allocateArray();
+                Value arrayValue = createObject(arr);
+                pushValue(arrayValue);
+                break;
+            }
+
+            case OPCode::ARRAY_GET: {
+                Value indexValue = popValue();
+                if (!isInt(indexValue)) {
+                    throw RuntimeException("Expected integer index for indexing operation");       
+                }
+                int index = asInt(indexValue);
+                Value arrayValue = popValue();
+                if (!isArray(arrayValue)) {
+                    throw RuntimeException("Expected array for indexing operation");       
+                }
+                ArrayObject* array = asArray(arrayValue);
+                if (index < 0 || index >= static_cast<int>(array->elements.size())) {
+                    throw RuntimeException("Array index out of bounds");
+                }
+                Value val = array->elements[index];
+                pushValue(val);
+                break;
+            }
+            case OPCode::ARRAY_SET: {
+                Value val = popValue();
+                Value indexValue = popValue();
+                if (!isInt(indexValue)) {
+                    throw RuntimeException("Expected integer index for indexing operation");       
+                }
+                int index = asInt(indexValue);
+                Value arrayValue = popValue();
+                if (!isArray(arrayValue)) {
+                    throw RuntimeException("Expected array for indexing operation");       
+                }
+                ArrayObject* array = asArray(arrayValue);
+                if (index < 0 || index >= static_cast<int>(array->elements.size())) {
+                    throw RuntimeException("Array index out of bounds");
+                }
+                array->elements[index] = val;
+                pushValue(val);  // Push value back for chained assignments
+                break;  
+            }
+            case OPCode::ARRAY_LENGTH: {
+                Value arrayValue = popValue();
+                if (!isArray(arrayValue)) {
+                    throw RuntimeException("Expected array for length operation");       
+                }
+                ArrayObject* array = asArray(arrayValue);
+
+                pushValue(createInt(static_cast<int>(array->elements.size())));
+                break;
+            }
+            case OPCode::ARRAY_PUSH: {
+                Value value = popValue();
+                Value arrayValue = popValue();
+                if (!isArray(arrayValue)) {
+                    throw RuntimeException("Expected array for push operation");
+                }
+                ArrayObject* array = asArray(arrayValue);
+
+                // Add element to the end of the array
+                array->elements.push_back(value);
+                array->length = array->elements.size();  // Keep length in sync
+
+                // Push array back (for chaining operations)
+                pushValue(arrayValue);
+                break;
+            }
+            case OPCode::ARRAY_POP: {
+                Value arrayValue = popValue();
+                if (!isArray(arrayValue)) {
+                    throw RuntimeException("Expected array for pop operation");
+                }
+                ArrayObject* array = asArray(arrayValue);
+
+                if (array->elements.empty()) {
+                    throw RuntimeException("Cannot pop from empty array");
+                }
+
+                // Pop the last element
+                Value poppedValue = array->elements.back();
+                array->elements.pop_back();
+                array->length = array->elements.size();  // Keep length in sync
+
+                // Push the popped value
+                pushValue(poppedValue);
+                break;
+            }
             case OPCode::HALT:
                 return;
             default:
@@ -591,6 +681,13 @@ const char* OpCodeToString(OPCode op) {
 
         case OPCode::CALL: return "CALL";
         case OPCode::RETURN: return "RETURN";
+
+        case OPCode::ARRAY_NEW: return "ARRAY_NEW";
+        case OPCode::ARRAY_GET: return "ARRAY_GET";
+        case OPCode::ARRAY_SET: return "ARRAY_SET";
+        case OPCode::ARRAY_LENGTH: return "ARRAY_LENGTH";
+        case OPCode::ARRAY_PUSH: return "ARRAY_PUSH";
+        case OPCode::ARRAY_POP: return "ARRAY_POP";
 
         case OPCode::HALT: return "HALT";
         default: return "UNKNOWN";

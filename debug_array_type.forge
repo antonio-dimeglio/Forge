@@ -1,0 +1,3 @@
+def test(nums: Array[int]) -> int {
+    return 5
+}

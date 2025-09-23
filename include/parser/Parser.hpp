@@ -10,12 +10,10 @@ class Parser {
         std::vector<Token> tokens; 
         size_t idx = 0;
 
-        Token current(); 
+        Token current();
         Token peek(int offset = 1);
         Token advance();
-        bool isAtEnd();
 
-        std::unique_ptr<Expression> parseExpression();
         std::unique_ptr<Expression> parseLogicalOr();
         std::unique_ptr<Expression> parseLogicalAnd();
         std::unique_ptr<Expression> parseBitwiseOr();
@@ -26,12 +24,18 @@ class Parser {
         std::unique_ptr<Expression> parseTerm();
         std::unique_ptr<Expression> parseFactor();
         std::unique_ptr<Expression> parseUnary();
+        std::unique_ptr<Expression> parsePostfix();
         std::unique_ptr<Expression> parsePrimary();
+        std::unique_ptr<Expression> parseArrayLiteral();
+        std::vector<std::unique_ptr<Expression>> parseArgumentList();
+
+        Token expect(TokenType expectedType, const std::string& errorMessage);
 
         std::unique_ptr<Statement> parseExpressionStatement();
         std::unique_ptr<Statement> parseStatement();
         std::unique_ptr<Statement> parseVariableDeclaration();
         std::unique_ptr<Statement> parseAssignment();
+        std::unique_ptr<Statement> parseIndexAssignmentOrExpression();
         std::unique_ptr<Statement> parseIfStatement();
         std::unique_ptr<Statement> parseWhileStatement();
         std::unique_ptr<Statement> parseFunctionDefinition();
@@ -41,6 +45,9 @@ class Parser {
         void skipNewLines();
     public:
         Parser(const std::vector<Token>& tokens) : tokens(tokens) {};
+        std::unique_ptr<Expression> parseExpression();
         std::unique_ptr<Statement> parseProgram();
         void reset(const std::vector<Token>& tokens);
+        bool isAtEnd();
+        Token getCurrentToken();
 };

@@ -29,6 +29,19 @@ std::string Assignment::toString(int indent) const {
     return ss.str();
 }
 
+void IndexAssignment::accept(BytecodeCompiler& compiler) const {
+    compiler.compileIndexAssignment(*this);
+}
+
+std::string IndexAssignment::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "IndexAssignment:\n"
+       << indentStr << "  LValue:\n" << lvalue->toString(indent + 2) << "\n"
+       << indentStr << "  RValue:\n" << rvalue->toString(indent + 2);
+    return ss.str();
+}
+
 void BlockStatement::accept(BytecodeCompiler& compiler) const {
     compiler.compileBlockStatement(*this);
 }

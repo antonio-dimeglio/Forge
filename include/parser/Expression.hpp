@@ -22,6 +22,47 @@ class LiteralExpression: public Expression {
         std::string toString(int indent = 0) const override;
 };
 
+class ArrayLiteralExpression: public Expression {
+    public:
+        std::vector<std::unique_ptr<Expression>> arrayValues;
+            ArrayLiteralExpression(
+                std::vector<std::unique_ptr<Expression>> values
+            ):  arrayValues(std::move(values)) {};
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class IndexAccessExpression: public Expression {
+    public:
+        std::unique_ptr<Expression> array;
+        std::unique_ptr<Expression> index;
+        IndexAccessExpression(
+                std::unique_ptr<Expression> array,
+                std::unique_ptr<Expression> index
+            ):  array(std::move(array)), index(std::move(index)) {};
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class MemberAccessExpression: public Expression {
+    public:
+        std::unique_ptr<Expression> object;  
+        std::string memberName;              
+        std::vector<std::unique_ptr<Expression>> arguments;
+        bool isMethodCall; 
+
+        MemberAccessExpression(
+            std::unique_ptr<Expression> object,
+            std::string memberName,
+            std::vector<std::unique_ptr<Expression>> arguments,
+            bool isMethodCall
+        ): object(std::move(object)), memberName(memberName),
+            arguments(std::move(arguments)), isMethodCall(isMethodCall) {}
+
+        void accept(BytecodeCompiler& compiler) const override;
+        std::string toString(int indent = 0) const override;
+};
+
 class IdentifierExpression: public Expression {
     public:
         std::string name;

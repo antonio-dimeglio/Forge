@@ -57,6 +57,13 @@ FunctionObject* Heap::allocateFunction(const std::string& name, int paramCount) 
     return obj;
 }
 
+ArrayObject* Heap::allocateArray() {
+    ArrayObject* obj = allocateObject<ArrayObject>(ARRAY);
+    obj->length = 0;
+    // elements vector is initialized empty by default
+    return obj;
+}
+
 void Heap::collect() {
     if (vm == nullptr) return;
 
@@ -99,6 +106,13 @@ void Heap::markObject(Object* obj) {
         for (const auto& constant : func->constants) {
             if (isObject(constant)) {
                 markObject(asObject(constant));
+            }
+        }
+    } else if (obj->type == ARRAY) {
+        ArrayObject* arr = static_cast<ArrayObject*>(obj);
+        for (const auto& element : arr->elements) {
+            if (isObject(element)) {
+                markObject(asObject(element));
             }
         }
     }

@@ -15,6 +15,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"bool", TokenType::BOOL},
     {"float", TokenType::FLOAT},
     {"double", TokenType::DOUBLE},
+    {"Array", TokenType::ARRAY},
     {"true", TokenType::TRUE},
     {"false", TokenType::FALSE}
 };
@@ -168,7 +169,10 @@ std::vector<Token> Tokenizer::tokenize() {
 
     while(!isAtEnd()) {
         char ch = current(); 
-        if (isDigit(ch) || ch == '.') {
+        if (ch == '.' && !isDigit(peek())) {
+            tokens.push_back(Token(TokenType::DOT, ".", line, column));
+            advance();
+        } else if (isDigit(ch) || ch == '.') {
             tokens.push_back(scanNumber());
         } else if (isAlpha(ch) || ch == '_') {
             tokens.push_back(scanIdentifier());
