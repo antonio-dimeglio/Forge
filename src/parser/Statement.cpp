@@ -1,12 +1,6 @@
 #include "../../include/parser/Statement.hpp"
-#include "../../include/backends/vm/BytecodeCompiler.hpp"
-#include "../../include/backends/vm/RuntimeException.hpp"
 #include "../../include/lexer/TokenType.hpp"
 #include <sstream>
-
-void VariableDeclaration::accept(BytecodeCompiler& compiler) const {
-    compiler.compileVariableDeclaration(*this);
-}
 
 std::string VariableDeclaration::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
@@ -17,20 +11,12 @@ std::string VariableDeclaration::toString(int indent) const {
     return ss.str();
 }
 
-void Assignment::accept(BytecodeCompiler& compiler) const {
-    compiler.compileAssignment(*this);
-}
-
 std::string Assignment::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
     ss << indentStr << "Assignment: " << variable.getValue() << " = \n"
        << expr->toString(indent + 1);
     return ss.str();
-}
-
-void IndexAssignment::accept(BytecodeCompiler& compiler) const {
-    compiler.compileIndexAssignment(*this);
 }
 
 std::string IndexAssignment::toString(int indent) const {
@@ -40,10 +26,6 @@ std::string IndexAssignment::toString(int indent) const {
        << indentStr << "  LValue:\n" << lvalue->toString(indent + 2) << "\n"
        << indentStr << "  RValue:\n" << rvalue->toString(indent + 2);
     return ss.str();
-}
-
-void BlockStatement::accept(BytecodeCompiler& compiler) const {
-    compiler.compileBlockStatement(*this);
 }
 
 std::string BlockStatement::toString(int indent) const {
@@ -58,10 +40,6 @@ std::string BlockStatement::toString(int indent) const {
     return ss.str();
 }
 
-void IfStatement::accept(BytecodeCompiler& compiler) const {
-    compiler.compileIfStatement(*this);
-}
-
 std::string IfStatement::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
@@ -74,9 +52,6 @@ std::string IfStatement::toString(int indent) const {
     return ss.str();
 }
 
-void WhileStatement::accept(BytecodeCompiler& compiler) const {
-    compiler.compileWhileStatement(*this);
-}
 
 std::string WhileStatement::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
@@ -87,9 +62,6 @@ std::string WhileStatement::toString(int indent) const {
     return ss.str();
 }
 
-void FunctionDefinition::accept(BytecodeCompiler& compiler) const {
-    compiler.compileFunctionDefinition(*this);
-}
 
 std::string FunctionDefinition::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
@@ -104,21 +76,12 @@ std::string FunctionDefinition::toString(int indent) const {
     return ss.str();
 }
 
-void ReturnStatement::accept(BytecodeCompiler& compiler) const {
-    compiler.compileReturnStatement(*this);
-}
-
 std::string ReturnStatement::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
     ss << indentStr << "ReturnStatement:\n";
     ss << indentStr << "  Value:" << returnValue->toString(indent + 2) << "\n";
     return ss.str();
-}
-
-
-void ExpressionStatement::accept(BytecodeCompiler& compiler) const {
-    expression->accept(compiler);
 }
 
 std::string ExpressionStatement::toString(int indent) const {
@@ -129,12 +92,6 @@ std::string ExpressionStatement::toString(int indent) const {
     return ss.str();
 }
 
-
-void Program::accept(BytecodeCompiler& compiler) const {
-    for (const auto& stmt : statements) {
-        stmt->accept(compiler);
-    }
-}
 
 std::string Program::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');

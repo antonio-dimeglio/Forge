@@ -2,198 +2,177 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include <iomanip>
+#include <memory>
+
 #include "../include/CLI11.hpp"
 #include "lexer/Tokenizer.hpp"
 #include "parser/Parser.hpp"
-#include "backends/vm/BytecodeCompiler.hpp"
-#include "backends/vm/OPCode.hpp"
-#include "backends/vm/VirtualMachine.hpp"
 
-int main(int argc, char** argv) {
-    CLI::App app{"Forge Programming Language Compiler", "forge"};
-    app.set_version_flag("--version,-v", "0.1.0 (Development)");
-
-    // Input file
+struct CompilerOptions {
     std::string input_file;
-    app.add_option("file", input_file, "Input file to compile")
-        ->check(CLI::ExistingFile);
-
-    // Output options
     std::string output_file;
-    app.add_option("-o,--output", output_file, "Output file name");
 
     // Compilation stages
     bool lexer_only = false;
     bool parser_only = false;
-    bool compiler_only = false;
-    bool no_execute = false;
-
-    app.add_flag("--lex", lexer_only, "Stop after lexical analysis");
-    app.add_flag("--parse", parser_only, "Stop after parsing (AST generation)");
-    app.add_flag("--compile", compiler_only, "Stop after compilation (bytecode generation)");
-    app.add_flag("--no-run", no_execute, "Don't execute the program");
+    bool compile_only = false;
 
     // Debug options
     bool verbose = false;
     bool dump_tokens = false;
     bool dump_ast = false;
-    bool dump_bytecode = false;
-    bool dump_vm_state = false;
+    bool dump_llvm = false;
 
-    app.add_flag("--verbose", verbose, "Enable verbose output");
-    app.add_flag("--dump-tokens", dump_tokens, "Dump lexer tokens");
-    app.add_flag("--dump-ast", dump_ast, "Dump parser AST");
-    app.add_flag("--dump-bytecode", dump_bytecode, "Dump compiler bytecode");
-    app.add_flag("--dump-vm", dump_vm_state, "Dump VM state during execution");
-
-    // Performance options
+    // Other options
     bool optimize = false;
-    app.add_flag("--optimize,-O", optimize, "Enable optimizations");
-
-    // Interactive mode
     bool interactive = false;
-    app.add_flag("--interactive,-i", interactive, "Start interactive REPL mode");
+};
 
-    try {
-        app.parse(argc, argv);
-    } catch (const CLI::ParseError &e) {
-        return app.exit(e);
+class ForgeCompiler {
+public:
+    ForgeCompiler(const CompilerOptions& opts) : options(opts) {}
+
+    int compile() {
+        if (options.interactive) {
+            return runInteractiveMode();
+        }
+
+        if (options.input_file.empty()) {
+            std::cerr << "Error: No input file specified\n";
+            return 1;
+        }
+
+        return compileFile();
     }
 
-    // Show header
-    if (verbose) {
-        std::cout << "Forge Programming Language Compiler v0.1.0\n";
-        std::cout << "===================================\n\n";
-    }
+private:
+    const CompilerOptions& options;
 
-    // Handle interactive mode
-    if (interactive) {
+    int runInteractiveMode() {
         std::cout << "Forge Interactive REPL (Not yet implemented)\n";
         std::cout << "Type 'exit' to quit\n";
         return 0;
     }
 
-    // Require input file for non-interactive mode
-    if (input_file.empty()) {
-        std::cout << "Error: No input file specified\n";
-        std::cout << "Use --help for usage information\n";
-        return 1;
-    }
-
-    if (verbose) {
-        std::cout << "Input file: " << input_file << "\n";
-        if (!output_file.empty()) {
-            std::cout << "Output file: " << output_file << "\n";
-        }
-        std::cout << "\n";
-    }
-
-    // Print compilation stages that will be executed
-    if (verbose) {
-        std::cout << "Compilation pipeline:\n";
-        std::cout << "1. Lexical Analysis";
-        if (lexer_only) std::cout << " (STOP)";
-        std::cout << "\n";
-
-        if (!lexer_only) {
-            std::cout << "2. Parsing (AST Generation)";
-            if (parser_only) std::cout << " (STOP)";
-            std::cout << "\n";
+    int compileFile() {
+        if (options.verbose) {
+            printHeader();
         }
 
-        if (!lexer_only && !parser_only) {
-            std::cout << "3. Compilation (Bytecode Generation)";
-            if (compiler_only) std::cout << " (STOP)";
-            std::cout << "\n";
+        // Read source file
+        std::string source = readFile(options.input_file);
+
+        // Lexical analysis
+        auto tokens = runLexer(source);
+        if (options.lexer_only) return 0;
+
+        // Parsing
+        auto ast = runParser(tokens);
+        if (options.parser_only) return 0;
+
+        // LLVM compilation (placeholder for now)
+        if (options.verbose) {
+            std::cout << "LLVM backend compilation - Coming soon!\n";
         }
 
-        if (!lexer_only && !parser_only && !compiler_only && !no_execute) {
-            std::cout << "4. Execution (Virtual Machine)\n";
-        }
-        std::cout << "\n";
-    }
-
-    std::cout << "Starting Forge compilation...\n";
-    std::cout << "Processing: " << input_file << "\n";
-
-    std::string source;
-    std::ifstream reader(input_file);
-    std::getline(reader, source, (char)std::char_traits<char>::eof());
-
-    Tokenizer tokenizer(source);
-    std::vector<Token> tokens = tokenizer.tokenize();
-
-    if (dump_tokens) {
-        std::cout << "\n=== TOKENS ===\n";
-        for (const auto& tok: tokens) {
-            std::cout << tok.toString() << "\n";
-        }
-    }
-
-    Parser parser(tokens);
-    std::unique_ptr<Statement> ast = parser.parseProgram();
-
-    if (dump_ast) {
-        std::cout << "\n=== AST ===\n";
-        std::cout << ast->toString() << "\n";
-    }
-
-    if (lexer_only || parser_only) {
-        std::cout << "Stopping after parsing as requested.\n";
         return 0;
     }
 
-    VirtualMachine vm;
-    BytecodeCompiler compiler(vm);
-    auto program = compiler.compile(std::move(ast));
+    void printHeader() {
+        std::cout << "Forge Programming Language Compiler v0.1.0\n";
+        std::cout << "===========================================\n";
+        std::cout << "Input: " << options.input_file << "\n\n";
+    }
 
-    if (dump_bytecode) {
-        std::cout << "\n=== BYTECODE ===\n";
-        std::cout << "Instructions:\n";
-        for (size_t i = 0; i < program.instructions.size(); ++i) {
-            const auto& inst = program.instructions[i];
-            std::cout << std::setw(4) << i << ": "
-                      << std::setw(12) << std::left << OpCodeToString(inst.opcode)
-                      << " " << inst.operand << "\n";
+    std::string readFile(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file) {
+            throw std::runtime_error("Cannot open file: " + filename);
         }
 
-        if (!program.constants.empty()) {
-            std::cout << "\nConstants Pool:\n";
-            for (size_t i = 0; i < program.constants.size(); ++i) {
-                const auto& constant = program.constants[i];
-                std::cout << std::setw(4) << i << ": ";
-                switch (constant.type) {
-                    case ValueType::INT:
-                        std::cout << "INT     " << asInt(constant);
-                        break;
-                    case ValueType::FLOAT:
-                        std::cout << "FLOAT   " << asFloat(constant);
-                        break;
-                    case ValueType::DOUBLE:
-                        std::cout << "DOUBLE  " << asDouble(constant);
-                        break;
-                    case ValueType::BOOL:
-                        std::cout << "BOOL    " << (asBool(constant) ? "true" : "false");
-                        break;
-                    case ValueType::OBJECT:
-                        std::cout << "OBJECT  " << valueToString(constant);
-                        break;
-                }
-                std::cout << "\n";
+        std::string content;
+        std::getline(file, content, '\0');
+        return content;
+    }
+
+    std::vector<Token> runLexer(const std::string& source) {
+        if (options.verbose) {
+            std::cout << "Running lexical analysis...\n";
+        }
+
+        Tokenizer tokenizer(source);
+        auto tokens = tokenizer.tokenize();
+
+        if (options.dump_tokens) {
+            std::cout << "\n=== TOKENS ===\n";
+            for (const auto& token : tokens) {
+                std::cout << token.toString() << "\n";
             }
+            std::cout << "\n";
         }
+
+        return tokens;
     }
 
-    
-    vm.loadProgram(program.instructions, program.constants);
-    vm.run();
+    std::unique_ptr<Statement> runParser(const std::vector<Token>& tokens) {
+        if (options.verbose) {
+            std::cout << "Running parser...\n";
+        }
 
-    if (dump_vm_state) {
-        std::cout << "\n=== VM STATE ===\n";
-        vm.dumpStack();
+        Parser parser(tokens);
+        auto ast = parser.parseProgram();
+
+        if (options.dump_ast) {
+            std::cout << "\n=== AST ===\n";
+            std::cout << ast->toString() << "\n\n";
+        }
+
+        return ast;
+    }
+};
+
+CompilerOptions parseCommandLine(int argc, char** argv) {
+    CLI::App app{"Forge Programming Language Compiler", "forge"};
+    app.set_version_flag("--version,-v", "0.1.0 (Development)");
+
+    CompilerOptions options;
+
+    // Input/Output
+    app.add_option("file", options.input_file, "Input file to compile")
+        ->check(CLI::ExistingFile);
+    app.add_option("-o,--output", options.output_file, "Output file name");
+
+    // Compilation stages
+    app.add_flag("--lex", options.lexer_only, "Stop after lexical analysis");
+    app.add_flag("--parse", options.parser_only, "Stop after parsing");
+    app.add_flag("--compile", options.compile_only, "Stop after compilation");
+
+    // Debug options
+    app.add_flag("--verbose,-v", options.verbose, "Enable verbose output");
+    app.add_flag("--dump-tokens", options.dump_tokens, "Dump lexer tokens");
+    app.add_flag("--dump-ast", options.dump_ast, "Dump parser AST");
+    app.add_flag("--dump-llvm", options.dump_llvm, "Dump LLVM IR");
+
+    // Other options
+    app.add_flag("--optimize,-O", options.optimize, "Enable optimizations");
+    app.add_flag("--interactive,-i", options.interactive, "Interactive REPL mode");
+
+    try {
+        app.parse(argc, argv);
+    } catch (const CLI::ParseError& error) {
+        std::exit(app.exit(error));
     }
 
+    return options;
+}
 
-    return 0;
+int main(int argc, char** argv) {
+    try {
+        auto options = parseCommandLine(argc, argv);
+        ForgeCompiler compiler(options);
+        return compiler.compile();
+    } catch (const std::exception& error) {
+        std::cerr << "Error: " << error.what() << "\n";
+        return 1;
+    }
 }

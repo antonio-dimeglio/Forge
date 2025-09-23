@@ -10,7 +10,8 @@ class BytecodeCompiler;
 class Statement {
     public:
         virtual ~Statement() = default;
-        virtual void accept(BytecodeCompiler& compiler) const = 0;
+        template<typename Visitor>
+        auto accept(Visitor& visitor) const -> decltype(visitor.visit(*this)) { return visitor.visit(*this); }
         virtual std::string toString(int indent = 0) const = 0;
 };
 
@@ -20,7 +21,6 @@ class Program : public Statement {
 
         Program(std::vector<std::unique_ptr<Statement>> statements)
             : statements(std::move(statements)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -31,7 +31,6 @@ class ExpressionStatement : public Statement {
 
         ExpressionStatement(std::unique_ptr<Expression> expr)
             : expression(std::move(expr)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -46,7 +45,6 @@ class VariableDeclaration: public Statement {
             Token type,
             std::unique_ptr<Expression> expr
         ) : variable(variable), type(type), expr(std::move(expr)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -58,7 +56,6 @@ class Assignment: public Statement {
             Token variable,
             std::unique_ptr<Expression> expr
         ) : variable(variable), expr(std::move(expr)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -70,7 +67,6 @@ class IndexAssignment: public Statement {
             std::unique_ptr<Expression> lvalue,
             std::unique_ptr<Expression> rvalue
         ) : lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -80,8 +76,6 @@ public:
 
     explicit BlockStatement(std::vector<std::unique_ptr<Statement>> stmts)
         : statements(std::move(stmts)) {}
-
-    void accept(BytecodeCompiler& compiler) const override;
 
     std::string toString(int indent = 0) const override;
 };
@@ -98,7 +92,6 @@ class IfStatement: public Statement {
         ) : condition(std::move(condition)),
             thenBlock(std::move(thenBlock)),
             elseBlock(std::move(elseBlock)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -111,7 +104,6 @@ class WhileStatement: public Statement {
             std::unique_ptr<BlockStatement> body
         ) : condition(std::move(condition)),
             body(std::move(body)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -132,7 +124,6 @@ class FunctionDefinition : public Statement {
             std::unique_ptr<BlockStatement> body
         ) : functionName(functionName), functionReturnType(functionReturnType),
             parameters(parameters), body(std::move(body)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -143,6 +134,5 @@ class ReturnStatement : public Statement {
         ReturnStatement(
             std::unique_ptr<Expression> returnValue
         ) : returnValue(std::move(returnValue)) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };

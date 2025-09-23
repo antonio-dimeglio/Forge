@@ -10,7 +10,8 @@ class BytecodeCompiler;
 class Expression {
     public:
         virtual ~Expression() = default;
-        virtual void accept(BytecodeCompiler& compiler) const = 0;
+        template<typename Visitor>
+        auto accept(Visitor& visitor) const -> decltype(visitor.visit(*this))  { return visitor.visit(*this); }
         virtual std::string toString(int indent = 0) const = 0;
 };
 
@@ -18,7 +19,6 @@ class LiteralExpression: public Expression {
     public:
         Token value;
         LiteralExpression(Token value): value(value) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -28,7 +28,6 @@ class ArrayLiteralExpression: public Expression {
             ArrayLiteralExpression(
                 std::vector<std::unique_ptr<Expression>> values
             ):  arrayValues(std::move(values)) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -40,7 +39,6 @@ class IndexAccessExpression: public Expression {
                 std::unique_ptr<Expression> array,
                 std::unique_ptr<Expression> index
             ):  array(std::move(array)), index(std::move(index)) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -59,7 +57,6 @@ class MemberAccessExpression: public Expression {
         ): object(std::move(object)), memberName(memberName),
             arguments(std::move(arguments)), isMethodCall(isMethodCall) {}
 
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -67,7 +64,6 @@ class IdentifierExpression: public Expression {
     public:
         std::string name;
         IdentifierExpression(std::string name) : name(name) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -82,7 +78,6 @@ class BinaryExpression: public Expression {
             Token operator_,
             std::unique_ptr<Expression> right
         ) : left(std::move(left)), operator_(operator_), right(std::move(right)) {};
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -95,7 +90,6 @@ class UnaryExpression: public Expression {
             Token operator_,
             std::unique_ptr<Expression> operand
         ) : operator_(operator_), operand(std::move(operand)) {}
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };
 
@@ -107,6 +101,5 @@ class FunctionCall : public Expression {
         FunctionCall(std::string name, std::vector<std::unique_ptr<Expression>> args = {})
             : functionName(name), arguments(std::move(args)) {}
 
-        void accept(BytecodeCompiler& compiler) const override;
         std::string toString(int indent = 0) const override;
 };

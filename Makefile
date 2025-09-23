@@ -2,6 +2,14 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude -g
 GTEST_FLAGS = -lgtest -lgtest_main -pthread
+
+# LLVM configuration
+LLVM_CONFIG = llvm-config-15
+LLVM_FLAGS = $(shell $(LLVM_CONFIG) --cxxflags --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
+# Filter out conflicting LLVM flags
+LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
+CXXFLAGS += $(LLVM_CXXFLAGS)
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
 SRCDIR = src
 OBJDIR = build
 TESTDIR = tests
@@ -23,7 +31,7 @@ all: $(TARGET)
 
 # Build main executable
 $(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET) -g
+	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS) -g
 
 # Build object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
@@ -34,7 +42,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 test: $(TEST_TARGET)
 
 $(TEST_TARGET): $(TEST_OBJECTS) $(filter-out $(OBJDIR)/main.o, $(OBJECTS))
-	$(CXX) $^ $(GTEST_FLAGS) -o $(TEST_TARGET)
+	$(CXX) $^ $(GTEST_FLAGS) $(LDFLAGS) -o $(TEST_TARGET)
 
 # Build test object files
 $(OBJDIR)/test/%.o: $(TESTDIR)/%.cpp

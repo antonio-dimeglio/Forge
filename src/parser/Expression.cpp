@@ -1,23 +1,6 @@
 #include "../../include/parser/Expression.hpp"
-#include "../../include/backends/vm/BytecodeCompiler.hpp"
 #include "../../include/lexer/TokenType.hpp"
 #include <sstream>
-
-void LiteralExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileLiteral(*this);
-}
-
-void IdentifierExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileIdentifier(*this);
-}
-
-void BinaryExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileBinary(*this);
-}
-
-void UnaryExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileUnary(*this);
-}
 
 // Helper function to create indentation
 std::string makeIndent(int indent) {
@@ -52,10 +35,6 @@ std::string UnaryExpression::toString(int indent) const {
     return ss.str();
 }
 
-void FunctionCall::accept(BytecodeCompiler& compiler) const {
-    compiler.compileFunctionCall(*this);
-}
-
 std::string FunctionCall::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
@@ -65,10 +44,6 @@ std::string FunctionCall::toString(int indent) const {
 }
 
 // ============= NEW ARRAY EXPRESSION IMPLEMENTATIONS =============
-
-void ArrayLiteralExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileArrayLiteral(*this);
-}
 
 std::string ArrayLiteralExpression::toString(int indent) const {
     std::stringstream ss;
@@ -90,9 +65,6 @@ std::string ArrayLiteralExpression::toString(int indent) const {
     return ss.str();
 }
 
-void IndexAccessExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileIndexAccess(*this);
-}
 
 std::string IndexAccessExpression::toString(int indent) const {
     std::stringstream ss;
@@ -102,9 +74,6 @@ std::string IndexAccessExpression::toString(int indent) const {
     return ss.str();
 }
 
-void MemberAccessExpression::accept(BytecodeCompiler& compiler) const {
-    compiler.compileMemberAccess(*this);
-}
 
 std::string MemberAccessExpression::toString(int indent) const {
     std::stringstream ss;

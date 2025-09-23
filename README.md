@@ -1,51 +1,78 @@
 # Forge Programming Language
 
-> A Python-like programming language with strong typing, built from the ground up in C++
+> A modern systems programming language designed for simplicity, safety, and performance
 
 ## 🚀 Overview
 
-Forge is an educational programming language project that combines the simplicity of Python syntax with the safety of strong static typing. The project follows a traditional compiler architecture, starting with a bytecode virtual machine and evolving toward JIT compilation and direct compilation.
+Forge is a modern systems programming language that combines clean syntax with manual memory management and strong typing. It targets developers who want C++-level performance without the complexity, featuring Rust-inspired safety features and LLVM-based compilation for serious performance.
 
-## ✨ Features
+## ✨ Language Design Goals
+
+### Core Philosophy
+- **Simple syntax with braces** (C-style, already implemented)
+- **Strong static typing with optionals** (Rust-inspired: `Option<T>`, `Result<T,E>`)
+- **Manual memory management with safety** (smart pointers: `unique<T>`, `shared<T>`)
+- **High performance** (LLVM-based compilation)
+- **Portfolio showcase project** demonstrating advanced compiler techniques
 
 ### Current Implementation
-- **Complete Token System** - Comprehensive lexical analysis foundation
-- **Strong Type System** - Static typing for performance and safety
-- **Python-like Syntax** - Familiar and clean language design
-- **Professional Testing** - Google Test framework with comprehensive coverage
+- ✅ **Lexer**: Complete tokenization with comprehensive operator support, comment handling, and error reporting
+- ✅ **Parser**: Full recursive descent parser with operator precedence, supporting expressions, statements, control flow, functions, and arrays
+- ✅ **AST**: Template-based visitor pattern architecture enabling multiple compilation backends
+- ✅ **Testing**: 335+ comprehensive tests ensuring reliability across all components
 
-### Planned Features
-- **Control Flow** - `if`, `else`, `while`, `for` statements
-- **Functions** - First-class function support with `def` and `return`
-- **Type Declarations** - Built-in types: `int`, `str`, `bool`, `float`, `double`
-- **Object-Oriented** - Classes and inheritance (future)
-- **Memory Management** - Garbage collection (future)
+### Target Features
+**Immediate Goals:**
+- Functions with proper calling conventions
+- Basic types (int, float, bool, string, arrays)
+- LLVM code generation for expressions and statements
+
+**Medium-term Goals:**
+- Safe pointer types and memory management
+- Pattern matching on Option/Result types
+- Module system and imports
+- Basic OOP (structs with methods)
+
+**Long-term Goals:**
+- C interoperability (extern functions)
+- Threading and async/await
+- Package manager
+- Standard library implementation
 
 ## 🏗️ Architecture
 
-Forge follows a multi-phase compilation pipeline:
+Forge uses a modern template-based visitor pattern architecture:
 
 ```
-Source Code → Lexer → Parser → Bytecode Compiler → Virtual Machine
+Source Code → Lexer → Parser → AST → LLVM Backend → Native Code
 ```
+
+### Architecture Highlights
+- **Frontend**: Completed lexer/parser generating AST
+- **Backend**: Template visitor pattern supporting multiple compilation targets
+- **Current Implementation**: All components use modern C++17 with comprehensive error handling
+- **Build System**: Makefile with separate test/build targets
 
 ### Development Phases
-1. **Phase 1: Bytecode VM** *(Current)*
-   - Lexical analysis ✅
-   - Syntax analysis *(In Progress)*
-   - Bytecode generation *(Planned)*
-   - Virtual machine *(Planned)*
+1. **Phase 1: LLVM Backend** *(Current Focus)*
+   - ✅ Lexical analysis (Complete)
+   - ✅ Syntax analysis (Complete)
+   - 🎯 LLVM code generation (Next)
+   - 🎯 Native compilation pipeline
 
-2. **Phase 2: JIT Compilation** *(Future)*
-   - Just-in-time compilation for performance
+2. **Phase 2: Advanced Features** *(Future)*
+   - Safe pointer types and memory management
+   - Pattern matching and advanced type system
 
-3. **Phase 3: Direct Compilation** *(Long-term)*
-   - Direct machine code generation
+3. **Phase 3: Ecosystem** *(Long-term)*
+   - C interoperability and standard library
+   - Package manager and tooling
 
 ## 🛠️ Building
 
 ### Prerequisites
 - C++17 compatible compiler (GCC 7+ or Clang 5+)
+- LLVM 15+ development libraries
 - Google Test library
 - Make
 
@@ -53,12 +80,21 @@ Source Code → Lexer → Parser → Bytecode Compiler → Virtual Machine
 ```bash
 # Install dependencies
 sudo apt-get update
-sudo apt-get install -y build-essential libgtest-dev libgmock-dev
+sudo apt-get install -y build-essential llvm-15-dev libllvm15 llvm-15-tools clang-15 libgtest-dev libgmock-dev
+
+# Verify LLVM installation
+llvm-config --version
 
 # Clone and build
 git clone https://github.com/yourusername/forge.git
 cd forge
 make
+```
+
+### LLVM Integration
+The project uses LLVM for code generation. The Makefile automatically detects LLVM configuration:
+```makefile
+LLVM_FLAGS = $(shell llvm-config --cxxflags --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
 ```
 
 ### Commands
@@ -95,29 +131,65 @@ Running main() from ./googletest/src/gtest_main.cc
 [  PASSED  ] 6 tests.
 ```
 
-## 📝 Language Syntax (Planned)
+## 📝 Language Syntax Examples
 
-```python
-# Variables with type inference
-x: int = 42
-name: str = "Alice"
-active: bool = true
+### Current Supported Features
+```rust
+// Basic expressions and arithmetic
+42 + 3.14 * (10 - 5)
+true && (x > 0 || y < 100)
 
-# Control flow
-if x > 0:
-    print("Positive number")
-else:
-    print("Non-positive")
+// Variables and assignments
+int x = 42
+str name = "Alice"
+bool active = true
 
-# Functions
-def fibonacci(n: int) -> int:
-    if n <= 1:
+// Arrays
+Array<int> numbers = [1, 2, 3, 4, 5]
+numbers[0] = 10
+int length = numbers.length()
+
+// Functions
+def fibonacci(n: int) -> int {
+    if (n <= 1) {
         return n
+    }
     return fibonacci(n-1) + fibonacci(n-2)
+}
 
-# Loops
-for i in range(10):
-    print(i)
+// Control flow
+if (x > 0) {
+    print("Positive")
+} else {
+    print("Non-positive")
+}
+
+while (x > 0) {
+    x = x - 1
+}
+```
+
+### Planned Advanced Features
+```rust
+// Safe pointer types
+unique<Buffer> buffer = new Buffer(1024)
+shared<Connection> conn = share(connection)
+
+// Option and Result types
+def divide(a: int, b: int) -> Option<int> {
+    if (b == 0) { return None }
+    return Some(a / b)
+}
+
+// Pattern matching
+match divide(10, 2) {
+    Some(result) => print("Result: " + result)
+    None => print("Division by zero!")
+}
+
+// Modules and C interop
+extern "C" fn malloc(size: int) -> *void
+import std.io
 ```
 
 ## 🏗️ Project Structure
