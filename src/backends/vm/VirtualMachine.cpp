@@ -4,6 +4,11 @@
 #include "../../../include/backends/vm/Object.hpp"
 #include <iostream>
 
+VirtualMachine::VirtualMachine() {
+    // Initialize heap with reference to this VM
+    heap.setVM(this);
+}
+
 // New Value-based stack operations
 void VirtualMachine::pushValue(Value value) {
     stack.push_back(value);

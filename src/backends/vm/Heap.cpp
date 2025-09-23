@@ -1,4 +1,5 @@
 #include "../../../include/backends/vm/Heap.hpp"
+#include "../../../include/backends/vm/VirtualMachine.hpp"
 #include <cstring>
 
 Heap::Heap() {
@@ -57,8 +58,35 @@ FunctionObject* Heap::allocateFunction(const std::string& name, int paramCount) 
 }
 
 void Heap::collect() {
-    // TODO: Implement mark-and-sweep garbage collection
-    // For now, just a stub
+    if (vm == nullptr) return;
+
+    markVMRoots();
+    sweep();
+}
+void Heap::markVMRoots() {
+    markValueArray(vm->getStack());
+    markValueArray(vm->getGlobals());
+    markValueArray(vm->getConstants());
+    markValueArray(vm->getLocals());
+    markCallStack(vm->getCallStack());
+}
+
+void Heap::markValueArray(const std::vector<Value>& values) {
+    for (const auto& value : values) {
+        if (isObject(value)) {
+            markObject(asObject(value));
+        }
+    }
+}
+
+void Heap::markCallStack(const std::stack<CallFrame>& callStack) {
+    std::stack<CallFrame> temp = callStack;  // Copy the stack
+    while (!temp.empty()) {
+        const CallFrame& frame = temp.top();
+        markValueArray(frame.constants);
+        markValueArray(frame.locals);
+        temp.pop();
+    }
 }
 
 void Heap::markObject(Object* obj) {

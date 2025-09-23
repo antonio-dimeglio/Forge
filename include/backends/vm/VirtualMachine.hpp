@@ -34,9 +34,10 @@ class VirtualMachine {
         void runtimeError(const std::string& message);
 
     public:
+        VirtualMachine();  // Constructor
         Value popValue();
         void loadProgram(const std::vector<Instruction>& instructions,
-                       const std::vector<Value>& constants);
+                const std::vector<Value>& constants);
         void run();
         void dumpStack();
         void printInstructions();
@@ -46,4 +47,11 @@ class VirtualMachine {
 
         // Heap access for object allocation
         Heap& getHeap() { return heap; }
+
+        // GC root access for heap
+        const std::vector<Value>& getStack() const { return stack; }
+        const std::vector<Value>& getGlobals() const { return globals; }
+        const std::vector<Value>& getConstants() const { return constants; }
+        const std::vector<Value>& getLocals() const { return locals; }
+        const std::stack<CallFrame>& getCallStack() const { return callStack; }
 };
