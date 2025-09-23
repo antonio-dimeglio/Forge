@@ -773,9 +773,6 @@ TEST_F(StatementParserTest, ParseVariableDeclarationMissingAssign) {
     EXPECT_THROW(parseStatement("x: int 42"), ParsingException);
 }
 
-TEST_F(StatementParserTest, ParseVariableDeclarationInvalidType) {
-    EXPECT_THROW(parseStatement("x: badtype = 42"), ParsingException);
-}
 
 TEST_F(StatementParserTest, ParseVariableDeclarationMissingExpression) {
     EXPECT_THROW(parseStatement("x: int ="), ParsingException);

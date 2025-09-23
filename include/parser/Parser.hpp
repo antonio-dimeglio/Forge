@@ -1,10 +1,11 @@
 #pragma once 
 #include "Expression.hpp"
 #include "Statement.hpp"
+#include "ParsedType.hpp"
 #include "../lexer/Token.hpp"
 #include <vector>
 #include <memory>
-
+#include <optional>
 class Parser {
     private:
         std::vector<Token> tokens; 
@@ -13,6 +14,8 @@ class Parser {
         Token current();
         Token peek(int offset = 1);
         Token advance();
+        bool isValidTypeToken(TokenType type);
+        std::optional<ParsedType> parseType();
 
         std::unique_ptr<Expression> parseLogicalOr();
         std::unique_ptr<Expression> parseLogicalAnd();

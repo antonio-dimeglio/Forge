@@ -45,6 +45,65 @@ void Parser::reset(const std::vector<Token>& tokens) {
     idx = 0;
 }
 
+bool Parser::isValidTypeToken(TokenType type) {
+    switch (type) {
+        // Built-in types
+        case TokenType::INT:
+        case TokenType::FLOAT:
+        case TokenType::DOUBLE:
+        case TokenType::BOOL:
+        case TokenType::STR:
+        case TokenType::ARRAY:
+        // User-defined types (any identifier could be a type)
+        // TODO: Implement type registry in the future.
+        case TokenType::IDENTIFIER:
+            return true;
+        default:
+            return false;
+    }
+}
+
+std::optional<ParsedType> Parser::parseType() {
+    if (!isValidTypeToken(current().getType())) {
+        return std::nullopt;
+    }
+
+    Token primaryType = advance();
+    ParsedType result {
+        .primaryType = primaryType,
+        .typeParameters = {},
+        .nestingLevel = 0
+    };
+    
+    // Handle Array[T], Map[K,V], etc.
+    if (current().getType() == TokenType::LSQUARE) {
+        advance();
+
+        auto innerTypeResult = parseType();
+        if (!innerTypeResult.has_value()) {
+            return std::nullopt;
+        }
+
+        result.typeParameters.push_back(innerTypeResult->primaryType);
+        result.nestingLevel = innerTypeResult->nestingLevel + 1;
+        while (current().getType() == TokenType::COMMA) {
+            advance(); // consume ','
+            auto paramResult = parseType();
+            if (!paramResult.has_value()) {
+                return std::nullopt;
+            }
+            result.typeParameters.push_back(paramResult->primaryType);
+        }
+
+        if (current().getType() != TokenType::RSQUARE) {
+          return std::nullopt; 
+        }
+        advance(); 
+    }
+
+    return result;
+}
+
 
 std::unique_ptr<Statement> Parser::parseStatement() {
     skipNewLines();
@@ -56,36 +115,22 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     TokenType currentType = current().getType();
     TokenType nextType = peek().getType();
 
-    if (currentType == TokenType::IF) {
-        return parseIfStatement();
-    }
-    if (currentType == TokenType::WHILE) {
-        return parseWhileStatement();
-    }
-    if (currentType == TokenType::DEF) {
-        return parseFunctionDefinition();
-    }
-    if (currentType == TokenType::RETURN) {
-        return parseReturnStatement();
-    }
-    if (currentType == TokenType::LBRACE) {
-        return std::unique_ptr<Statement>(parseBlockStatement().release());
-    }
-    if (currentType == TokenType::IDENTIFIER) {
-        if (nextType == TokenType::COLON) {
-            return parseVariableDeclaration();
-        }
-        if (nextType == TokenType::ASSIGN) {
-            return parseAssignment();
-        }
-        if (nextType == TokenType::LSQUARE) {
-            // This could be array index assignment: arr[index] = value
-            // We need to look ahead further to see if there's an = after the ]
-            return parseIndexAssignmentOrExpression();
-        } // Here function call should go
-        if (nextType == TokenType::NUMBER || nextType == TokenType::IDENTIFIER) {
-            Token next = peek();
-            throw ParsingException("Unexpected token after identifier. Did you mean to use '=' for assignment or ':' for declaration?", next.getLine(), next.getColumn());
+    switch (currentType) {
+        case TokenType::IF: return parseIfStatement();
+        case TokenType::WHILE: return parseWhileStatement();
+        case TokenType::DEF: return parseFunctionDefinition();
+        case TokenType::RETURN: return parseReturnStatement();
+        case TokenType::LBRACE: return std::unique_ptr<Statement>(parseBlockStatement().release());
+        case TokenType::IDENTIFIER: {
+            switch (nextType) {
+                case TokenType::COLON: return parseVariableDeclaration();
+                case TokenType::ASSIGN: return parseAssignment();
+                case TokenType::LSQUARE: return parseIndexAssignmentOrExpression();
+                case TokenType::NUMBER:
+                case TokenType::IDENTIFIER:
+                    Token next = peek();
+                    throw ParsingException("Unexpected token after identifier. Did you mean to use '=' for assignment or ':' for declaration?", next.getLine(), next.getColumn());
+            }
         }
     }
 
@@ -396,140 +441,21 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
 
 std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     Token identifier = advance();
-    Token t(TokenType::END_OF_FILE, -1, -1);
 
-    if (identifier.getType() != TokenType::IDENTIFIER) {
+    if (identifier.getType() != TokenType::IDENTIFIER){
         throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
     }
-    if ((t = advance()).getType() != TokenType::COLON) {
-        throw ParsingException("Expected :", t.getLine(), t.getColumn());
+
+    if (advance().getType() != TokenType::COLON) {
+        throw ParsingException("Expected :", current().getLine(), current().getColumn());
     }
 
-    Token type = advance();
-
-
-    switch (type.getType()) {
-        case TokenType::INT:
-        case TokenType::FLOAT:
-        case TokenType::DOUBLE:
-        case TokenType::BOOL:
-        case TokenType::STR:
-            break;
-        case TokenType::ARRAY: {
-            // Handle Array[T] syntax - Array is a keyword
-            if (current().getType() != TokenType::LSQUARE) {
-                throw ParsingException("Expected '[' after Array", current().getLine(), current().getColumn());
-            }
-            advance(); // consume [
-
-            Token innerType = current();
-            switch (innerType.getType()) {
-                case TokenType::INT:
-                case TokenType::FLOAT:
-                case TokenType::DOUBLE:
-                case TokenType::BOOL:
-                case TokenType::STR:
-                    advance(); // consume simple type
-                    break;
-                case TokenType::ARRAY: {
-                    // Recursive parsing for nested arrays like Array[int]
-                    advance(); // consume ARRAY
-                    if (current().getType() != TokenType::LSQUARE) {
-                        throw ParsingException("Expected '[' after nested Array", current().getLine(), current().getColumn());
-                    }
-                    advance(); // consume [
-
-                    // Recursively parse the inner type
-                    Token nestedType = current();
-                    switch (nestedType.getType()) {
-                        case TokenType::INT:
-                        case TokenType::FLOAT:
-                        case TokenType::DOUBLE:
-                        case TokenType::BOOL:
-                        case TokenType::STR:
-                            advance(); // consume nested type
-                            break;
-                        default:
-                            throw ParsingException("Invalid nested array element type", nestedType.getLine(), nestedType.getColumn());
-                    }
-
-                    if (current().getType() != TokenType::RSQUARE) {
-                        throw ParsingException("Expected ']' after nested array type", current().getLine(), current().getColumn());
-                    }
-                    advance(); // consume ]
-                    break;
-                }
-                default:
-                    throw ParsingException("Invalid array element type", innerType.getLine(), innerType.getColumn());
-            }
-
-            if (current().getType() != TokenType::RSQUARE) {
-                throw ParsingException("Expected ']' after array type", current().getLine(), current().getColumn());
-            }
-            advance(); // consume ]
-            break;
-        }
-        case TokenType::IDENTIFIER: {
-            if (type.getValue() == "Array") {
-                // Parse Array[T] syntax: consume [, type, ]
-                if (current().getType() != TokenType::LSQUARE) {
-                    throw ParsingException("Expected '[' after Array", current().getLine(), current().getColumn());
-                }
-                advance(); // consume [
-
-                Token innerType = current();
-                switch (innerType.getType()) {
-                    case TokenType::INT:
-                    case TokenType::FLOAT:
-                    case TokenType::DOUBLE:
-                    case TokenType::BOOL:
-                    case TokenType::STR:
-                        advance(); // consume simple type
-                        break;
-                    case TokenType::ARRAY: {
-                        // Recursive parsing for nested arrays like Array[int]
-                        advance(); // consume ARRAY
-                        if (current().getType() != TokenType::LSQUARE) {
-                            throw ParsingException("Expected '[' after nested Array", current().getLine(), current().getColumn());
-                        }
-                        advance(); // consume [
-
-                        // Recursively parse the inner type
-                        Token nestedType = current();
-                        switch (nestedType.getType()) {
-                            case TokenType::INT:
-                            case TokenType::FLOAT:
-                            case TokenType::DOUBLE:
-                            case TokenType::BOOL:
-                            case TokenType::STR:
-                                advance(); // consume nested type
-                                break;
-                            default:
-                                throw ParsingException("Invalid nested array element type", nestedType.getLine(), nestedType.getColumn());
-                        }
-
-                        if (current().getType() != TokenType::RSQUARE) {
-                            throw ParsingException("Expected ']' after nested array type", current().getLine(), current().getColumn());
-                        }
-                        advance(); // consume ]
-                        break;
-                    }
-                    default:
-                        throw ParsingException("Invalid array element type", innerType.getLine(), innerType.getColumn());
-                }
-
-                if (current().getType() != TokenType::RSQUARE) {
-                    throw ParsingException("Expected ']' after array type", current().getLine(), current().getColumn());
-                }
-                advance(); // consume ]
-            } else {
-                throw ParsingException("Unknown type: " + type.getValue(), type.getLine(), type.getColumn());
-            }
-            break;
-        }
-        default:
-            throw ParsingException("Expected type ", type.getLine(), type.getColumn());
+    auto typeResult = parseType();
+    if (!typeResult.has_value()) {
+        throw ParsingException("Expected valid type", current().getLine(), current().getColumn());
     }
+    
+    ParsedType parsedType = typeResult.value();
 
     if (advance().getType() != TokenType::ASSIGN) {
         throw ParsingException("Expected =", current().getLine(), current().getColumn());
@@ -538,10 +464,10 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     auto expression = parseExpression();
 
     return std::make_unique<VariableDeclaration>(
-        identifier,   
-        type,         
-        std::move(expression)  
-    );   
+        identifier,
+        parsedType.primaryType,
+        std::move(expression)
+    );
 }
 
 std::unique_ptr<Statement> Parser::parseAssignment() {
@@ -710,66 +636,14 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
                 throw ParsingException("Expected :", t.getLine(), t.getColumn());
             }
 
-            Token type = advance();
-            switch (type.getType()) {
-                case TokenType::INT:
-                case TokenType::FLOAT:
-                case TokenType::BOOL:
-                case TokenType::STR:
-                case TokenType::DOUBLE:
-                    break;
-                case TokenType::ARRAY: {
-                    // Parse Array[ElementType] syntax
-                    if (advance().getType() != TokenType::LSQUARE) {
-                        throw ParsingException("Expected '[' after Array", current().getLine(), current().getColumn());
-                    }
-                    Token innerType = advance();
-                    switch (innerType.getType()) {
-                        case TokenType::INT:
-                        case TokenType::FLOAT:
-                        case TokenType::BOOL:
-                        case TokenType::STR:
-                        case TokenType::DOUBLE:
-                            // Simple type, don't advance again
-                            break;
-                        case TokenType::ARRAY: {
-                            // Recursive parsing for nested arrays in function parameters
-                            if (advance().getType() != TokenType::LSQUARE) {
-                                throw ParsingException("Expected '[' after nested Array", current().getLine(), current().getColumn());
-                            }
-                            Token nestedType = advance();
-                            switch (nestedType.getType()) {
-                                case TokenType::INT:
-                                case TokenType::FLOAT:
-                                case TokenType::BOOL:
-                                case TokenType::STR:
-                                case TokenType::DOUBLE:
-                                    // Don't advance again
-                                    break;
-                                default:
-                                    throw ParsingException("Invalid nested array element type in function parameter", nestedType.getLine(), nestedType.getColumn());
-                            }
-                            if (advance().getType() != TokenType::RSQUARE) {
-                                throw ParsingException("Expected ']' after nested array type in function parameter", current().getLine(), current().getColumn());
-                            }
-                            break;
-                        }
-                        default:
-                            throw ParsingException("Expected element type in Array", innerType.getLine(), innerType.getColumn());
-                    }
-                    if (current().getType() != TokenType::RSQUARE) {
-                        throw ParsingException("Expected ']' after Array element type", current().getLine(), current().getColumn());
-                    }
-                    advance(); // consume ]
-                    break;
-                }
-                default:
-                    throw ParsingException("Expected type", type.getLine(), type.getColumn());
+            auto typeResult = parseType();
+            if (!typeResult.has_value()) {
+                throw ParsingException("Expected valid parameter type", current().getLine(), current().getColumn());
             }
 
             params.push_back(StatementParameter {
                 .name = name,
-                .type = type
+                .type = typeResult->primaryType
             });
 
             
@@ -784,7 +658,6 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
         }
     }
 
-    
     if ((t = advance()).getType() != TokenType::RPAREN) {
         throw ParsingException("Expected )", t.getLine(), t.getColumn());
     }
@@ -793,69 +666,16 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
         throw ParsingException("Expected ->", t.getLine(), t.getColumn());
     }
 
-    Token functionReturnType = advance();
-
-    switch (functionReturnType.getType()) {
-        case TokenType::INT:
-        case TokenType::FLOAT:
-        case TokenType::BOOL:
-        case TokenType::STR:
-        case TokenType::DOUBLE:
-            break;
-        case TokenType::ARRAY: {
-            // Parse Array[ElementType] syntax for return type
-            if (advance().getType() != TokenType::LSQUARE) {
-                throw ParsingException("Expected '[' after Array", current().getLine(), current().getColumn());
-            }
-            Token innerType = advance();
-            switch (innerType.getType()) {
-                case TokenType::INT:
-                case TokenType::FLOAT:
-                case TokenType::BOOL:
-                case TokenType::STR:
-                case TokenType::DOUBLE:
-                    // Simple type, don't advance again
-                    break;
-                case TokenType::ARRAY: {
-                    // Recursive parsing for nested arrays in return type
-                    if (advance().getType() != TokenType::LSQUARE) {
-                        throw ParsingException("Expected '[' after nested Array", current().getLine(), current().getColumn());
-                    }
-                    Token nestedType = advance();
-                    switch (nestedType.getType()) {
-                        case TokenType::INT:
-                        case TokenType::FLOAT:
-                        case TokenType::BOOL:
-                        case TokenType::STR:
-                        case TokenType::DOUBLE:
-                            // Don't advance again
-                            break;
-                        default:
-                            throw ParsingException("Invalid nested array element type in return type", nestedType.getLine(), nestedType.getColumn());
-                    }
-                    if (advance().getType() != TokenType::RSQUARE) {
-                        throw ParsingException("Expected ']' after nested array type in return type", current().getLine(), current().getColumn());
-                    }
-                    break;
-                }
-                default:
-                    throw ParsingException("Expected element type in Array", innerType.getLine(), innerType.getColumn());
-            }
-            if (current().getType() != TokenType::RSQUARE) {
-                throw ParsingException("Expected ']' after Array element type", current().getLine(), current().getColumn());
-            }
-            advance(); // consume ]
-            break;
-        }
-        default:
-            throw ParsingException("Expected type", functionReturnType.getLine(), functionReturnType.getColumn());
+    auto returnTypeResult = parseType();
+    if(!returnTypeResult.has_value()) {
+        throw ParsingException("Expected valid return type", current().getLine(), current().getColumn());
     }
 
     auto body = parseBlockStatement();
 
     return std::make_unique<FunctionDefinition>(
             functionName,
-            functionReturnType,
+            returnTypeResult->primaryType,
             params,
             std::move(body)
         );
