@@ -91,10 +91,7 @@ std::optional<ParsedType> Parser::parseType() {
             result.typeParameters.push_back(paramResult->primaryType);
         }
 
-        if (current().getType() != TokenType::RSQUARE) {
-          return std::nullopt; 
-        }
-        advance(); 
+        expect(TokenType::RSQUARE, "Expected ]");
     }
 
     return result;
@@ -334,6 +331,7 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
             // Array indexing: arr[index]
             advance(); // consume [
             auto index = parseExpression();
+            
             if (current().getType() != TokenType::RSQUARE) {
                 throw ParsingException("Expected ']'", current().getLine(), current().getColumn());
             }
@@ -508,9 +506,7 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
         throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
     }
 
-    if ((t = advance()).getType() != TokenType::ASSIGN) {
-        throw ParsingException("Expected =", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::ASSIGN, "Expected =");
 
     auto expression = parseExpression();
 
@@ -565,19 +561,15 @@ std::unique_ptr<BlockStatement> Parser::parseBlockStatement() {
 std::unique_ptr<Statement> Parser::parseIfStatement() {
     Token t(TokenType::END_OF_FILE, -1, -1);
 
-    if ((t = advance()).getType() != TokenType::IF) {
-        throw ParsingException("Expected if", t.getLine(), t.getColumn());
-    }
-
-    if ((t = advance()).getType() != TokenType::LPAREN) {
-        throw ParsingException("Expected (", t.getLine(), t.getColumn());
-    }
+    // if ((t = advance()).getType() != TokenType::IF) {
+    //     throw ParsingException("Expected if", t.getLine(), t.getColumn());
+    // }
+    expect(TokenType::IF, "Expected if");
+    expect(TokenType::LPAREN, "Expected (");
 
     auto expression = parseExpression();
 
-    if ((t = advance()).getType() != TokenType::RPAREN) {
-        throw ParsingException("Expected )", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::RPAREN, "Expected )");
 
     // Parse then block
     auto thenBlock = parseBlockStatement();
@@ -599,22 +591,14 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
 std::unique_ptr<Statement> Parser::parseWhileStatement() {
     Token t(TokenType::END_OF_FILE, -1, -1);
 
-    if ((t = advance()).getType() != TokenType::WHILE) {
-        throw ParsingException("Expected while", t.getLine(), t.getColumn());
-    }
-
-    if ((t = advance()).getType() != TokenType::LPAREN) {
-        throw ParsingException("Expected (", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::WHILE, "Expected while");
+    expect(TokenType::LPAREN, "Expected (");
 
     auto expression = parseExpression();
 
-    if ((t = advance()).getType() != TokenType::RPAREN) {
-        throw ParsingException("Expected )", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::RPAREN, "Expected )");
 
     auto body = parseBlockStatement();
-
 
     return std::make_unique<WhileStatement>(
         std::move(expression),
@@ -624,9 +608,8 @@ std::unique_ptr<Statement> Parser::parseWhileStatement() {
 
 std::unique_ptr<Statement> Parser::parseReturnStatement() {
     Token t(TokenType::END_OF_FILE, -1, -1);
-    if ((t = advance()).getType() != TokenType::RETURN) {
-        throw ParsingException("Expected return", t.getLine(), t.getColumn());
-    }
+
+    expect(TokenType::RETURN, "Expected return");
 
     auto value = parseExpression();
 
@@ -638,22 +621,15 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
 std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
     expect(TokenType::DEF, "Expected def");
 
-    Token functionName = advance();
-    if (functionName.getType() != TokenType::IDENTIFIER) {
-        throw ParsingException("Expected variable", functionName.getLine(), functionName.getColumn());
-    }
+    Token functionName = expect(TokenType::IDENTIFIER, "Expected variable");
 
     expect(TokenType::LPAREN, "Expected (");
 
     std::vector<StatementParameter> params;
-
     
     if (current().getType() != TokenType::RPAREN) {
         while (true) {
             Token name = expect(TokenType::IDENTIFIER, "Expected parameter name");
-            if (name.getType() != TokenType::IDENTIFIER) {
-                throw ParsingException("Expected parameter name", name.getLine(), name.getColumn());
-            }
 
             expect(TokenType::COLON, "Expected :");
 
