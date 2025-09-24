@@ -1,0 +1,9 @@
+def fibonacci(n: int) -> int {
+    if (n <= 1) {        // ✅ Base case: n = 0 or n = 1
+        return n         // ✅ fib(0) = 0, fib(1) = 1
+    } else {             // ✅ Recursive case: n > 1
+        return fibonacci(n-1) + fibonacci(n-2)
+    }
+}
+
+x: int = fibonacci(5)

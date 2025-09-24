@@ -27,6 +27,12 @@ void ErrorReporter::unsupportedOperation(const std::string& op, const std::strin
     errorCount++;
 }
 
+llvm::Value* ErrorReporter::unimplementedFunction(const std::string& functionName) {
+    std::cerr << "Error: unimplemented function: " << functionName << "\n";
+    errorCount++;
+    return nullptr;
+}
+
 llvm::Value* ErrorReporter::compilationError(const std::string& message) {
     std::cerr << "Error: " << message << "\n";
     errorCount++;

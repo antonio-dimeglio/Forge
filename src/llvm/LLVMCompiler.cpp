@@ -220,13 +220,66 @@ void LLVMCompiler::visit(const WhileStatement& node) {
 
     builder.SetInsertPoint(exitBlock);
 }
+
 void LLVMCompiler::visit(const FunctionDefinition& node) {
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : node.parameters) {
+        llvm::Type* paramType = LLVMTypeSystem::getLLVMType(context, param.type.getType());
+        paramTypes.push_back(paramType);
+    }
+
+    // TODO: Implement variadic arguments for functions in the future
+    llvm::FunctionType* funcType = llvm::FunctionType::get(
+        LLVMTypeSystem::getLLVMType(context, node.functionReturnType.getType()),
+        paramTypes,
+        false 
+    );
+
+    llvm::Function* func = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        node.functionName.getValue(),
+        _module.get()
+    );
+
+    llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(context, LLVMLabels::FUNC_ENTRY, func);
+    builder.SetInsertPoint(entryBlock);
+
+    scopeManager.enterScope();
+
+    auto paramIt = func->arg_begin();
+    for (const auto& param: node.parameters){
+        llvm::Argument* arg = &(*paramIt++);
+        arg->setName(param.name.getValue());
+
+        llvm::AllocaInst* ptr = builder.CreateAlloca(
+            LLVMTypeSystem::getLLVMType(context, param.type.getType()),
+            nullptr, 
+            param.name.getValue());
+
+        builder.CreateStore(arg, ptr);
+        scopeManager.declare(param.name.getValue(), ptr);
+    }
     
-}
-void LLVMCompiler::visit(const ReturnStatement& node) {
-    
+    visit(*node.body);
+
+    // If the function doesnt have a return statement one is added
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        builder.CreateRetVoid();
+    }
+
+    scopeManager.exitScope();
 }
 
+void LLVMCompiler::visit(const ReturnStatement& node) {
+    if (node.returnValue) {
+        llvm::Value* returnValue = visit(*node.returnValue);
+        builder.CreateRet(returnValue);
+    } else {
+        // Empty return functions
+        builder.CreateRetVoid();
+    }
+}
 
 llvm::Value* LLVMCompiler::visit(const BinaryExpression& node) {
     llvm::Value* lValue = visit(*node.left);
@@ -328,5 +381,21 @@ llvm::Value* LLVMCompiler::visit(const ArrayLiteralExpression& node)  {
 }
 
 llvm::Value* LLVMCompiler::visit(const FunctionCall& node) {
-    return nullptr;
+    std::string funcName = node.functionName;
+    llvm::Function* calledFunction = _module->getFunction(funcName);
+    if (!calledFunction) {
+        return ErrorReporter::unimplementedFunction(funcName);
+    }
+
+    std::vector<llvm::Value*> args;
+    for (const auto& arg : node.arguments) {
+        llvm::Value* argValue = visit(*arg);  
+        if (!argValue) {
+            return ErrorReporter::compilationError("Failed to evaluate function argument");
+        }
+        args.push_back(argValue);
+    }
+
+    llvm::Value* result = builder.CreateCall(calledFunction, args);
+    return result;
 }

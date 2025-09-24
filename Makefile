@@ -7,7 +7,7 @@ GTEST_FLAGS = -lgtest -lgtest_main -pthread
 LLVM_CONFIG = llvm-config-15
 # Filter out conflicting LLVM flags and suppress LLVM warnings
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
-CXXFLAGS += $(LLVM_CXXFLAGS) -I/usr/include/llvm-c-15 -Wno-unused-parameter
+CXXFLAGS += $(LLVM_CXXFLAGS) -I/usr/include/llvm-c-15 -Wno-unused-parameter -Wno-switch
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
 SRCDIR = src
 OBJDIR = build
