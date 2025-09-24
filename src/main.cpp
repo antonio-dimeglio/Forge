@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "../include/CLI11.hpp"
+#include "../include/llvm/LLVMCompiler.hpp"
 #include "lexer/Tokenizer.hpp"
 #include "parser/Parser.hpp"
 
@@ -70,9 +71,17 @@ private:
         auto ast = runParser(tokens);
         if (options.parser_only) return 0;
 
-        // LLVM compilation (placeholder for now)
+        auto compiler = LLVMCompiler();
+        auto module = compiler.compile(*ast);
+
+        if (options.dump_llvm) {
+            std::cout << "\n=== LLVM IR ===\n";
+            module->print(llvm::outs(), nullptr);
+            std::cout << "\n";
+        }
+
         if (options.verbose) {
-            std::cout << "LLVM backend compilation - Coming soon!\n";
+            
         }
 
         return 0;
@@ -148,7 +157,7 @@ CompilerOptions parseCommandLine(int argc, char** argv) {
     app.add_flag("--compile", options.compile_only, "Stop after compilation");
 
     // Debug options
-    app.add_flag("--verbose,-v", options.verbose, "Enable verbose output");
+    app.add_flag("--verbose", options.verbose, "Enable verbose output");
     app.add_flag("--dump-tokens", options.dump_tokens, "Dump lexer tokens");
     app.add_flag("--dump-ast", options.dump_ast, "Dump parser AST");
     app.add_flag("--dump-llvm", options.dump_llvm, "Dump LLVM IR");

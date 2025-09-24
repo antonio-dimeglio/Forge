@@ -17,19 +17,20 @@ class Parser {
         bool isValidTypeToken(TokenType type);
         std::optional<ParsedType> parseType();
 
-        std::unique_ptr<Expression> parseLogicalOr();
-        std::unique_ptr<Expression> parseLogicalAnd();
-        std::unique_ptr<Expression> parseBitwiseOr();
-        std::unique_ptr<Expression> parseBitwiseXor();
-        std::unique_ptr<Expression> parseBitwiseAnd();
-        std::unique_ptr<Expression> parseEquality();
-        std::unique_ptr<Expression> parseComparison();
-        std::unique_ptr<Expression> parseTerm();
-        std::unique_ptr<Expression> parseFactor();
-        std::unique_ptr<Expression> parseUnary();
-        std::unique_ptr<Expression> parsePostfix();
         std::unique_ptr<Expression> parsePrimary();
         std::unique_ptr<Expression> parseArrayLiteral();
+        std::unique_ptr<Expression> parsePostfix();
+        std::unique_ptr<Expression> parseUnary();
+        std::unique_ptr<Expression> parseFactor();
+        std::unique_ptr<Expression> parseTerm();
+        std::unique_ptr<Expression> parseComparison();
+        std::unique_ptr<Expression> parseEquality();
+        std::unique_ptr<Expression> parseBitwiseAnd();
+        std::unique_ptr<Expression> parseBitwiseXor();
+        std::unique_ptr<Expression> parseBitwiseOr();
+        std::unique_ptr<Expression> parseLogicalAnd();
+        std::unique_ptr<Expression> parseLogicalOr();
+        
         std::vector<std::unique_ptr<Expression>> parseArgumentList();
 
         Token expect(TokenType expectedType, const std::string& errorMessage);

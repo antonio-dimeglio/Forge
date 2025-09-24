@@ -5,10 +5,9 @@ GTEST_FLAGS = -lgtest -lgtest_main -pthread
 
 # LLVM configuration
 LLVM_CONFIG = llvm-config-15
-LLVM_FLAGS = $(shell $(LLVM_CONFIG) --cxxflags --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
-# Filter out conflicting LLVM flags
+# Filter out conflicting LLVM flags and add missing include paths
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
-CXXFLAGS += $(LLVM_CXXFLAGS)
+CXXFLAGS += $(LLVM_CXXFLAGS) -I/usr/include/llvm-c-15
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
 SRCDIR = src
 OBJDIR = build
