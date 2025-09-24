@@ -11,4 +11,5 @@ class LLVMTypeSystem {
         static llvm::Type* inferExpressionType(llvm::LLVMContext& context, const Expression& expr);
         static bool canPromoteType(llvm::Type* from, llvm::Type* to);
         static llvm::Type* getPromotedType(llvm::Type* left, llvm::Type* right);
+        static void setFunctionReturnType(llvm::IRBuilder<>& builder, llvm::Function* func);
 };

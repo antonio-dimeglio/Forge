@@ -5,6 +5,12 @@
 #include "../../include/llvm/LLVMLabels.hpp"
 #include <iostream>
 #include <string>
+/*
+    TODO: 
+        Implement arrays
+        Implements classes (?)
+        Implement string support for operations such as +
+*/
 
 LLVMCompiler::LLVMCompiler() : context(), builder(context) {
     _module = std::make_unique<llvm::Module>(LLVMLabels::MAIN_LABEL, context);
@@ -164,11 +170,14 @@ void LLVMCompiler::visit(const IfStatement& node) {
     // Blocks definiton
     llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_THEN, currentFunction);
     llvm::BasicBlock* elseBlock = nullptr;
-    llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_MERGE, currentFunction);
+    llvm::BasicBlock* mergeBlock = nullptr; // merge only if one of the two branches doesnt return
+
     if (node.elseBlock) {
         elseBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_ELSE, currentFunction);
     }    
 
+
+    // Condition evaluation
     llvm::Value* condition = visit(*node.condition);
     if (!condition) return; // Something failed when evaluating the condition
 
@@ -176,29 +185,40 @@ void LLVMCompiler::visit(const IfStatement& node) {
         // TODO: Conversion of non bool type to bool
     }
 
+    // Lazy merge-block creation
     if (elseBlock) {
+        mergeBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_MERGE, currentFunction);
         builder.CreateCondBr(condition, thenBlock, elseBlock);
     } else {
+        mergeBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_MERGE, currentFunction);
         builder.CreateCondBr(condition, thenBlock, mergeBlock);
     }
-
+    
+    // ---- THEN ----
     builder.SetInsertPoint(thenBlock);
     visit(*node.thenBlock);
-
-    if (!thenBlock->getTerminator()) {
+    bool thenReturns = thenBlock->getTerminator() != nullptr;
+    if (!thenReturns) {
         builder.CreateBr(mergeBlock);
     }
 
+     // ---- ELSE ----
+    bool elseReturns = false;
     if (elseBlock) {
         builder.SetInsertPoint(elseBlock);
         visit(*node.elseBlock);
-
-        if (!elseBlock->getTerminator()) {
+        elseReturns = elseBlock->getTerminator() != nullptr;
+        if (!elseReturns) {
             builder.CreateBr(mergeBlock);
         }
     }
 
-    builder.SetInsertPoint(mergeBlock);
+    if (!thenReturns || (elseBlock && !elseReturns) || (!elseBlock)) {
+        builder.SetInsertPoint(mergeBlock);
+    } else {
+        // merge block unused, erase it
+        mergeBlock->eraseFromParent();
+    }
 }   
 
 void LLVMCompiler::visit(const WhileStatement& node) {
@@ -228,11 +248,11 @@ void LLVMCompiler::visit(const FunctionDefinition& node) {
         paramTypes.push_back(paramType);
     }
 
-    // TODO: Implement variadic arguments for functions in the future
+
     llvm::FunctionType* funcType = llvm::FunctionType::get(
         LLVMTypeSystem::getLLVMType(context, node.functionReturnType.getType()),
         paramTypes,
-        false 
+        false     // TODO: Implement variadic arguments for functions in the future
     );
 
     llvm::Function* func = llvm::Function::Create(
@@ -241,6 +261,12 @@ void LLVMCompiler::visit(const FunctionDefinition& node) {
         node.functionName.getValue(),
         _module.get()
     );
+
+    // Technically there's always a previous insertion block
+    llvm::BasicBlock* prevInsertBlock = nullptr;
+    if (builder.GetInsertBlock()) {
+        prevInsertBlock = builder.GetInsertBlock();
+    }
 
     llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(context, LLVMLabels::FUNC_ENTRY, func);
     builder.SetInsertPoint(entryBlock);
@@ -265,19 +291,33 @@ void LLVMCompiler::visit(const FunctionDefinition& node) {
 
     // If the function doesnt have a return statement one is added
     if (!builder.GetInsertBlock()->getTerminator()) {
-        builder.CreateRetVoid();
+        LLVMTypeSystem::setFunctionReturnType(builder, func);
     }
-
     scopeManager.exitScope();
+
+    if (prevInsertBlock) {
+        builder.SetInsertPoint(prevInsertBlock);
+    } else {
+        // set insert point at end of module.
+    }
 }
 
 void LLVMCompiler::visit(const ReturnStatement& node) {
+    llvm::Function* currentFunction = nullptr;
+    if (builder.GetInsertBlock())
+        currentFunction = builder.GetInsertBlock()->getParent();
+
     if (node.returnValue) {
         llvm::Value* returnValue = visit(*node.returnValue);
         builder.CreateRet(returnValue);
     } else {
-        // Empty return functions
-        builder.CreateRetVoid();
+        // No explicit return value, produce a return matching the function's type
+        if (!currentFunction) {
+            // should not happen, but guard
+            builder.CreateRetVoid();
+            return;
+        }
+        LLVMTypeSystem::setFunctionReturnType(builder, currentFunction);
     }
 }
 

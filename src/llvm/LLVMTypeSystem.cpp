@@ -89,3 +89,16 @@ llvm::Type* LLVMTypeSystem::getPromotedType(llvm::Type* left, llvm::Type* right)
     // Default fallback
     return llvm::Type::getInt32Ty(context);
 }
+
+void LLVMTypeSystem::setFunctionReturnType(llvm::IRBuilder<>& builder, llvm::Function* func) {
+    llvm::Type* returnType = func->getReturnType();
+    if (returnType->isVoidTy()) {
+        builder.CreateRetVoid();
+    } else if (returnType->isIntegerTy()) {
+        builder.CreateRet(llvm::ConstantInt::get(returnType, 0));
+    } else if (returnType->isFloatingPointTy()) {
+        builder.CreateRet(llvm::ConstantFP::get(returnType, 0.0));
+    } else if (returnType->isPointerTy()) {
+            builder.CreateRet(llvm::Constant::getNullValue(returnType));
+    }
+}

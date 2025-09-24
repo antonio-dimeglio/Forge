@@ -31,6 +31,6 @@ llvm::Value* ScopeManager::lookup(const std::string& name) {
 }
 
 bool ScopeManager::isDeclaredInCurrentScope(const std::string& name) {
-    auto currentScope = scopeStack.back();
+    auto& currentScope = scopeStack.back();
     return currentScope.find(name) != currentScope.end();
 }

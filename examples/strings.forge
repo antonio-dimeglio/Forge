@@ -1,3 +1,4 @@
 if ("a" + "b" == "ab") {
     x: int = 1
+    return x
 }
