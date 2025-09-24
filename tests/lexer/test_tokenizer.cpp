@@ -1178,7 +1178,7 @@ TEST_F(TokenizerTest, KeywordBoundaryEdgeCases) {
 TEST_F(TokenizerTest, ArrayTypeDeclaration) {
     auto tokens = tokenize("Array[int]");
     ASSERT_EQ(tokens.size(), 5);
-    expectToken(tokens[0], TokenType::ARRAY, "Array");
+    expectToken(tokens[0], TokenType::IDENTIFIER, "Array");
     expectToken(tokens[1], TokenType::LSQUARE);
     expectToken(tokens[2], TokenType::INT);
     expectToken(tokens[3], TokenType::RSQUARE);
@@ -1230,9 +1230,9 @@ TEST_F(TokenizerTest, ArrayIndexAccess) {
 TEST_F(TokenizerTest, NestedArrayTypes) {
     auto tokens = tokenize("Array[Array[int]]");
     ASSERT_EQ(tokens.size(), 8);
-    expectToken(tokens[0], TokenType::ARRAY, "Array");
+    expectToken(tokens[0], TokenType::IDENTIFIER, "Array");
     expectToken(tokens[1], TokenType::LSQUARE);
-    expectToken(tokens[2], TokenType::ARRAY, "Array");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "Array");
     expectToken(tokens[3], TokenType::LSQUARE);
     expectToken(tokens[4], TokenType::INT);
     expectToken(tokens[5], TokenType::RSQUARE);
@@ -1245,12 +1245,12 @@ TEST_F(TokenizerTest, ArrayVariableDeclaration) {
     ASSERT_EQ(tokens.size(), 13);
     expectToken(tokens[0], TokenType::IDENTIFIER, "numbers");
     expectToken(tokens[1], TokenType::COLON);
-    expectToken(tokens[2], TokenType::ARRAY, "Array");
+    expectToken(tokens[2], TokenType::IDENTIFIER, "Array");
     expectToken(tokens[3], TokenType::LSQUARE);
     expectToken(tokens[4], TokenType::INT);
     expectToken(tokens[5], TokenType::RSQUARE);
     expectToken(tokens[6], TokenType::ASSIGN);
-    expectToken(tokens[7], TokenType::ARRAY, "Array");
+    expectToken(tokens[7], TokenType::IDENTIFIER, "Array");
     expectToken(tokens[8], TokenType::DOT);
     expectToken(tokens[9], TokenType::IDENTIFIER, "new");
     expectToken(tokens[10], TokenType::LPAREN, "(");

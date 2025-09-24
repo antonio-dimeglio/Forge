@@ -45,7 +45,8 @@
     X(BOOL, "BOOL") \
     X(FLOAT, "FLOAT") \
     X(DOUBLE, "DOUBLE") \
-    X(ARRAY, "ARRAY") \
+    X(CLASS, "CLASS") \
+    X(SELF, "SELF") \
     \
     /* Punctuation */ \
     X(LPAREN, "LPAREN") \

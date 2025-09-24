@@ -105,3 +105,37 @@ std::string Program::toString(int indent) const {
     }
     return ss.str();
 }
+
+std::string ClassDefinition::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "ClassDefinition: " << className.getValue();
+
+    if (!genericParameters.empty()) {
+        ss << "[";
+        for (size_t i = 0; i < genericParameters.size(); ++i) {
+            ss << genericParameters[i].getValue();
+            if (i < genericParameters.size() - 1) ss << ", ";
+        }
+        ss << "]";
+    }
+    ss << "\n";
+
+    if (!fields.empty()) {
+        ss << indentStr << "  Fields:\n";
+        for (const auto& field : fields) {
+            ss << indentStr << "    " << field.name.getValue()
+               << ": " << field.type.getValue() << "\n";
+        }
+    }
+
+    if (!methods.empty()) {
+        ss << indentStr << "  Methods:\n";
+        for (const auto& method : methods) {
+            ss << indentStr << "    " << method.methodName.getValue()
+               << "() -> " << method.returnType.getValue() << "\n";
+        }
+    }
+
+    return ss.str();
+}

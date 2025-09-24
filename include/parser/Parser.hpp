@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include <optional>
+
 class Parser {
     private:
         std::vector<Token> tokens; 
@@ -18,6 +19,7 @@ class Parser {
         std::optional<ParsedType> parseType();
 
         std::unique_ptr<Expression> parsePrimary();
+        std::unique_ptr<Expression> parseGenericInstantiation(Token className); 
         std::unique_ptr<Expression> parseArrayLiteral();
         std::unique_ptr<Expression> parsePostfix();
         std::unique_ptr<Expression> parseUnary();
@@ -37,6 +39,9 @@ class Parser {
 
         std::unique_ptr<Statement> parseExpressionStatement();
         std::unique_ptr<Statement> parseStatement();
+        std::unique_ptr<Statement> parseClassDefinition();
+        FieldDefinition parseFieldDefinition();
+        MethodDefinition parseMethodDefinition();
         std::unique_ptr<Statement> parseVariableDeclaration();
         std::unique_ptr<Statement> parseAssignment();
         std::unique_ptr<Statement> parseIndexAssignmentOrExpression();

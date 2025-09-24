@@ -93,3 +93,40 @@ std::string MemberAccessExpression::toString(int indent) const {
 
     return ss.str();
 }
+
+std::string ObjectInstantiation::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "ObjectInstantiation: " << className.getValue();
+
+    if (!arguments.empty()) {
+        ss << "\n" << makeIndent(indent + 1) << "Arguments:";
+        for (size_t i = 0; i < arguments.size(); ++i) {
+            ss << "\n" << arguments[i]->toString(indent + 2);
+        }
+    }
+
+    return ss.str();
+}
+
+std::string GenericInstantiation::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "GenericInstantiation: " << className.getValue();
+
+    if (!typeArguments.empty()) {
+        ss << "[";
+        for (size_t i = 0; i < typeArguments.size(); ++i) {
+            ss << typeArguments[i].getValue();
+            if (i < typeArguments.size() - 1) ss << ", ";
+        }
+        ss << "]";
+    }
+
+    if (!arguments.empty()) {
+        ss << "\n" << makeIndent(indent + 1) << "Arguments:";
+        for (size_t i = 0; i < arguments.size(); ++i) {
+            ss << "\n" << arguments[i]->toString(indent + 2);
+        }
+    }
+
+    return ss.str();
+}

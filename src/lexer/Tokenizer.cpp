@@ -15,7 +15,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"bool", TokenType::BOOL},
     {"float", TokenType::FLOAT},
     {"double", TokenType::DOUBLE},
-    {"Array", TokenType::ARRAY},
+    {"class", TokenType::CLASS},
+    {"self", TokenType::SELF},
     {"true", TokenType::TRUE},
     {"false", TokenType::FALSE}
 };

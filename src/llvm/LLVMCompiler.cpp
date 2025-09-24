@@ -7,8 +7,8 @@
 #include <string>
 /*
     TODO: 
-        Implement arrays
-        Implements classes (?)
+        Implements classes
+        Implement arrays (but first fix indexing by using a single square-multiple comma indexing style)
         Implement string support for operations such as +
 */
 

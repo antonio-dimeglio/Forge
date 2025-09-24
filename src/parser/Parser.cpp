@@ -47,15 +47,11 @@ void Parser::reset(const std::vector<Token>& tokens) {
 
 bool Parser::isValidTypeToken(TokenType type) {
     switch (type) {
-        // Built-in types
         case TokenType::INT:
         case TokenType::FLOAT:
         case TokenType::DOUBLE:
         case TokenType::BOOL:
         case TokenType::STR:
-        case TokenType::ARRAY:
-        // User-defined types (any identifier could be a type)
-        // TODO: Implement type registry in the future.
         case TokenType::IDENTIFIER:
             return true;
         default:
@@ -121,6 +117,7 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         case TokenType::DEF: return parseFunctionDefinition();
         case TokenType::RETURN: return parseReturnStatement();
         case TokenType::LBRACE: return std::unique_ptr<Statement>(parseBlockStatement().release());
+        case TokenType::CLASS: return parseClassDefinition();
         case TokenType::IDENTIFIER: {
             switch (nextType) {
                 case TokenType::COLON: return parseVariableDeclaration();
@@ -181,7 +178,6 @@ std::unique_ptr<Expression> Parser::parseLogicalAnd() {
     return expr;
 }
 
-
 std::unique_ptr<Expression> Parser::parseBitwiseOr() {
     auto expr = parseBitwiseXor();
 
@@ -196,7 +192,6 @@ std::unique_ptr<Expression> Parser::parseBitwiseOr() {
     return expr;
 }
 
-
 std::unique_ptr<Expression> Parser::parseBitwiseXor() {
     auto expr = parseBitwiseAnd();
 
@@ -210,7 +205,6 @@ std::unique_ptr<Expression> Parser::parseBitwiseXor() {
 
     return expr;
 }
-
 
 std::unique_ptr<Expression> Parser::parseBitwiseAnd() {
     auto expr = parseTerm();
@@ -387,10 +381,46 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             advance();
             return std::make_unique<LiteralExpression>(token);
         case TokenType::IDENTIFIER:
-        case TokenType::ARRAY:
             {
                 Token identifier = advance();
-                if (current().getType() == TokenType::LPAREN) {
+
+                if (current().getType() == TokenType::LSQUARE) {
+                    // Need to distinguish between generic instantiation (Array[int](10))
+                    // and array access (arr[0]) by looking ahead for parentheses
+                    size_t savedIdx = idx;
+
+                    // Skip past the bracket content to see if there are parentheses after
+                    advance(); // consume '['
+                    int bracketDepth = 1;
+                    while (bracketDepth > 0 && !isAtEnd()) {
+                        if (current().getType() == TokenType::LSQUARE) {
+                            bracketDepth++;
+                        } else if (current().getType() == TokenType::RSQUARE) {
+                            bracketDepth--;
+                        }
+                        if (bracketDepth > 0) advance();
+                    }
+
+                    bool hasParensAfter = false;
+                    if (!isAtEnd() && current().getType() == TokenType::RSQUARE) {
+                        advance(); // consume ']'
+                        if (!isAtEnd() && current().getType() == TokenType::LPAREN) {
+                            hasParensAfter = true;
+                        }
+                    }
+
+                    // Restore position
+                    idx = savedIdx;
+
+                    if (hasParensAfter) {
+                        // This is generic instantiation: Array[int](10)
+                        return parseGenericInstantiation(identifier);
+                    } else {
+                        // This is array access, return identifier and let postfix handle it
+                        return std::make_unique<IdentifierExpression>(identifier.getValue());
+                    }
+                } else if (current().getType() == TokenType::LPAREN) {
+                    // Regular function call: func(args)
                     advance();
 
                     std::vector<std::unique_ptr<Expression>> arguments;
@@ -418,6 +448,7 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
 
                     return std::make_unique<FunctionCall>(identifier.getValue(), std::move(arguments));
                 } else {
+                    // Just a variable: identifier
                     return std::make_unique<IdentifierExpression>(identifier.getValue());
                 }
             }
@@ -437,7 +468,6 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             throw ParsingException("Invalid expression ", current().getLine(), current().getColumn());
     };
 }
-
 
 std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     Token identifier = advance();
@@ -606,35 +636,26 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
 }
 
 std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
-    // TODO: REfactor multiple switch statements to check if token is a type.
-    Token t(TokenType::END_OF_FILE, -1, -1);
-
-    if ((t = advance()).getType() != TokenType::DEF) {
-        throw ParsingException("Expected def", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::DEF, "Expected def");
 
     Token functionName = advance();
     if (functionName.getType() != TokenType::IDENTIFIER) {
         throw ParsingException("Expected variable", functionName.getLine(), functionName.getColumn());
     }
 
-    if ((t = advance()).getType() != TokenType::LPAREN) {
-        throw ParsingException("Expected (", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::LPAREN, "Expected (");
 
     std::vector<StatementParameter> params;
 
     
     if (current().getType() != TokenType::RPAREN) {
         while (true) {
-            Token name = advance();
+            Token name = expect(TokenType::IDENTIFIER, "Expected parameter name");
             if (name.getType() != TokenType::IDENTIFIER) {
                 throw ParsingException("Expected parameter name", name.getLine(), name.getColumn());
             }
 
-            if ((t = advance()).getType() != TokenType::COLON) {
-                throw ParsingException("Expected :", t.getLine(), t.getColumn());
-            }
+            expect(TokenType::COLON, "Expected :");
 
             auto typeResult = parseType();
             if (!typeResult.has_value()) {
@@ -658,13 +679,8 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
         }
     }
 
-    if ((t = advance()).getType() != TokenType::RPAREN) {
-        throw ParsingException("Expected )", t.getLine(), t.getColumn());
-    }
-
-    if ((t = advance()).getType() != TokenType::ARROW) {
-        throw ParsingException("Expected ->", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::RPAREN, "Expected )");
+    expect(TokenType::ARROW, "Expected ->");
 
     auto returnTypeResult = parseType();
     if(!returnTypeResult.has_value()) {
@@ -721,3 +737,180 @@ std::unique_ptr<Expression> Parser::parseArrayLiteral() {
     return std::make_unique<ArrayLiteralExpression>(std::move(elements));
 }
 
+std::unique_ptr<Expression> Parser::parseGenericInstantiation(Token className) {
+    // Parse generic type arguments: [int] or [string, int]
+    advance(); // consume '['
+
+    std::vector<Token> typeArguments;
+
+    if (current().getType() != TokenType::RSQUARE) {
+        while (true) {
+            if (!isValidTypeToken(current().getType())) {
+                throw ParsingException("Expected type in generic instantiation", current().getLine(), current().getColumn());
+            }
+
+            Token typeArg = current();
+            advance();
+            typeArguments.push_back(typeArg);
+
+            if (current().getType() == TokenType::COMMA) {
+                advance(); // consume ','
+                continue;
+            } else if (current().getType() == TokenType::RSQUARE) {
+                break;
+            } else {
+                throw ParsingException("Expected ',' or ']' in generic type arguments", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    advance(); // consume ']'
+
+    // Parse constructor arguments: (10) or ("Alice", 25)
+    expect(TokenType::LPAREN, "Expected '(' after generic instantiation");
+
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    if (current().getType() != TokenType::RPAREN) {
+        while (true) {
+            arguments.push_back(parseExpression());
+
+            if (current().getType() == TokenType::COMMA) {
+                advance(); // consume ','
+                continue;
+            } else if (current().getType() == TokenType::RPAREN) {
+                break;
+            } else {
+                throw ParsingException("Expected ',' or ')' in constructor arguments", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    advance(); // consume ')'
+
+    return std::make_unique<GenericInstantiation>(className, std::move(typeArguments), std::move(arguments));
+}
+
+std::unique_ptr<Statement> Parser::parseClassDefinition() {
+    advance(); // consume Class
+    Token className = advance();
+    std::vector<Token> genericParameters;
+    std::vector<FieldDefinition> fields;
+    std::vector<MethodDefinition> methods;
+
+    if (className.getType() != TokenType::IDENTIFIER) {
+        throw ParsingException("Cannot use name for class definition", className.getLine(), className.getColumn());
+    }
+
+    if (current().getType() == TokenType::LSQUARE) {
+        advance();
+        // Cannot have empty squares like Array[] without a T
+        if (current().getType() == TokenType::RSQUARE) {
+            throw ParsingException("Cannot have empty generic class definition", current().getLine(), current().getColumn());
+        }
+        while (true) {
+            Token name = current();
+            if (name.getType() != TokenType::IDENTIFIER) {
+                throw ParsingException("Expected generic identifier", name.getLine(), name.getColumn());
+            }
+            genericParameters.push_back(name);
+            advance(); // consume the identifier
+
+            // Check what comes after the identifier
+            if (current().getType() == TokenType::RSQUARE) {
+                advance(); // consume the ']'
+                break;
+            } else if (current().getType() == TokenType::COMMA) {
+                advance(); // consume the comma
+                continue;
+            } else {
+                throw ParsingException("Expected ',' or ']' after generic parameter", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    expect(TokenType::LBRACE, "Expected '{' after class declaration");
+
+    while (current().getType() != TokenType::RBRACE) {
+        if (current().getType() == TokenType::IDENTIFIER) {
+            fields.push_back(parseFieldDefinition());
+        } else if (current().getType() == TokenType::DEF) {
+            methods.push_back(parseMethodDefinition()); // Must be defined
+        } else {
+            throw ParsingException("Expected method or attribute", current().getLine(), current().getColumn());
+        }
+    }
+    expect(TokenType::RBRACE, "Expected '}' to close class definition");
+
+    return std::make_unique<ClassDefinition>(className, std::move(genericParameters), std::move(fields), std::move(methods));
+}
+
+FieldDefinition Parser::parseFieldDefinition() {
+    Token name = expect(TokenType::IDENTIFIER, "Expected identifier for field definition.");
+    expect(TokenType::COLON, "Expected :");
+
+    if (!isValidTypeToken(current().getType())) {
+        throw ParsingException("Expected valid type", current().getLine(), current().getColumn());
+    }
+
+    Token type = advance();
+
+    return FieldDefinition {
+        .name = name,
+        .type = type
+    };
+}
+
+MethodDefinition Parser::parseMethodDefinition() {
+    std::vector<StatementParameter> parameters;
+    std::unique_ptr<BlockStatement> body;
+
+    expect(TokenType::DEF, "Expected def");
+    Token methodName = expect(TokenType::IDENTIFIER, "Expected identifier for method definition.");
+    expect(TokenType::LPAREN, "Expected (");
+
+    if (current().getType() != TokenType::RPAREN) {
+        while (true) {
+            Token name = expect(TokenType::IDENTIFIER, "Expected parameter name");
+            if (name.getType() != TokenType::IDENTIFIER) {
+                throw ParsingException("Expected parameter name", name.getLine(), name.getColumn());
+            }
+
+            expect(TokenType::COLON, "Expected :");
+
+            auto typeResult = parseType();
+            if (!typeResult.has_value()) {
+                throw ParsingException("Expected valid parameter type", current().getLine(), current().getColumn());
+            }
+
+            parameters.push_back(StatementParameter {
+                .name = name,
+                .type = typeResult->primaryType
+            });
+
+            
+            if (current().getType() == TokenType::COMMA) {
+                advance(); 
+                continue; 
+            } else if (current().getType() == TokenType::RPAREN) {
+                break;
+            } else {
+                throw ParsingException("Expected ',' or ')'", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    expect(TokenType::ARROW, "Expected ->");
+    Token returnType = advance();
+
+    if (!isValidTypeToken(returnType.getType())) {
+        throw ParsingException("Invalid return type for method " + methodName.getValue(), current().getLine(), current().getColumn());
+    }
+
+    return MethodDefinition(
+        methodName,
+        returnType,
+        std::move(parameters),
+        parseBlockStatement() 
+    );
+}

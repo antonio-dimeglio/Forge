@@ -103,3 +103,29 @@ class FunctionCall : public Expression {
 
         std::string toString(int indent = 0) const override;
 };
+
+class ObjectInstantiation : public Expression {
+public:
+    Token className;
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    ObjectInstantiation(Token className, std::vector<std::unique_ptr<Expression>> arguments)
+        : className(className), arguments(std::move(arguments)) {}
+
+    std::string toString(int indent = 0) const override;
+};
+
+class GenericInstantiation : public Expression {
+public:
+    Token className;
+    std::vector<Token> typeArguments;  // [int], [string, int]
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    GenericInstantiation(Token className,
+                         std::vector<Token> typeArguments,
+                         std::vector<std::unique_ptr<Expression>> arguments)
+        : className(className), typeArguments(std::move(typeArguments)),
+          arguments(std::move(arguments)) {}
+
+    std::string toString(int indent = 0) const override;
+};

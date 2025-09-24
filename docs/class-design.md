@@ -2,75 +2,89 @@
 
 ## Basic Class Syntax
 ```forge
-class Person:
+class Person {
     name: string
     age: int
 
-    def __init__(name: string, age: int):
+    def __init__(name: string, age: int) {
         self.name = name
         self.age = age
+    }
 
-    def greet() -> string:
+    def greet() -> string {
         return "Hello, I'm " + self.name
+    }
 
-    def get_age() -> int:
+    def get_age() -> int {
         return self.age
+    }
+}
 ```
 
 ## Generic Classes
 ```forge
-class Array[T]:
+class Array[T] {
     data: T*
     size: int
     capacity: int
 
-    def __init__(capacity: int):
+    def __init__(capacity: int) {
         self.data = malloc(capacity * sizeof(T))
         self.size = 0
         self.capacity = capacity
+    }
 
-    def get(index: int) -> T:
+    def get(index: int) -> T {
         return self.data[index]
+    }
 
-    def set(index: int, value: T):
+    def set(index: int, value: T) {
         self.data[index] = value
+    }
 
-    def push(value: T):
-        if self.size >= self.capacity:
-            # Resize logic
+    def push(value: T) {
+        if self.size >= self.capacity {
+            // Resize logic
+        }
         self.data[self.size] = value
         self.size = self.size + 1
+    }
+}
 ```
 
 ## Multiple Type Parameters
 ```forge
-class Map[K, V]:
+class Map[K, V] {
     keys: Array[K]
     values: Array[V]
 
-    def __init__(capacity: int):
+    def __init__(capacity: int) {
         self.keys = Array[K](capacity)
         self.values = Array[V](capacity)
+    }
 
-    def put(key: K, value: V):
-        # Implementation
+    def put(key: K, value: V) {
+        // Implementation
+    }
 
-    def get(key: K) -> V:
-        # Implementation
+    def get(key: K) -> V {
+        // Implementation
+    }
+}
 ```
 
 ## Object Usage
 ```forge
-# Basic instantiation
+// Basic instantiation
 person: Person = Person("Alice", 25)
 greeting: string = person.greet()
 
-# Generic instantiation
+// Generic instantiation
 numbers: Array[int] = Array[int](10)
 numbers.push(42)
 value: int = numbers.get(0)
 
-# Multiple generics
+// Multiple generics
 cache: Map[string, int] = Map[string, int](100)
 cache.put("answer", 42)
 ```

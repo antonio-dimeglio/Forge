@@ -136,3 +136,41 @@ class ReturnStatement : public Statement {
         ) : returnValue(std::move(returnValue)) {};
         std::string toString(int indent = 0) const override;
 };
+
+
+
+struct FieldDefinition {
+    Token name;
+    Token type;    
+};
+
+struct MethodDefinition {
+    Token methodName;
+    Token returnType;
+    std::vector<StatementParameter> parameters;
+    std::unique_ptr<BlockStatement> body;
+
+    MethodDefinition(Token methodName, Token returnType,
+                     std::vector<StatementParameter> parameters,
+                     std::unique_ptr<BlockStatement> body)
+        : methodName(methodName), returnType(returnType),
+          parameters(std::move(parameters)), body(std::move(body)) {}
+};
+
+
+class ClassDefinition : public Statement {
+public:
+    Token className;
+    std::vector<Token> genericParameters;
+    std::vector<FieldDefinition> fields;
+    std::vector<MethodDefinition> methods;
+
+    ClassDefinition(Token className,
+                    std::vector<Token> genericParameters,
+                    std::vector<FieldDefinition> fields,
+                    std::vector<MethodDefinition> methods)
+        : className(className), genericParameters(std::move(genericParameters)),
+          fields(std::move(fields)), methods(std::move(methods)) {}
+
+    std::string toString(int indent = 0) const override;
+};

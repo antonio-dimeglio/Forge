@@ -10,6 +10,5 @@ struct ParsedType {
     int nestingLevel;
 
     bool isSimpleType() const { return typeParameters.empty(); }
-    bool isArrayType() const { return primaryType.getType() == TokenType::ARRAY; }
     std::string toString() const;
 };
