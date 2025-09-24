@@ -6,18 +6,22 @@
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/Support/TargetSelect.h> 
 #include <memory>
+#include <unordered_map>
 #include <string>
 
 #include "../parser/Statement.hpp"
+#include "ScopeManager.hpp"
+#include "LLVMTypeSystem.hpp"
+#include "ErrorReporter.hpp"
 
 class LLVMCompiler {
     private:
         llvm::LLVMContext context;
         std::unique_ptr<llvm::Module> _module;
         llvm::IRBuilder<> builder;
-
-        llvm::Value* evaluateConstantNumerical(std::string value);
-        llvm::Type* inferExpressionType(const Expression& expr);
+        std::unordered_map<std::string, llvm::Value*> symbolTable;
+        ScopeManager scopeManager;
+        
     public:
         LLVMCompiler();
         std::unique_ptr<llvm::Module> compile(const Statement& ast);

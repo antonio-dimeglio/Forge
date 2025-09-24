@@ -1,0 +1,14 @@
+#pragma once
+
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/IRBuilder.h>
+#include "../parser/Statement.hpp"
+
+class LLVMTypeSystem {
+    public:
+        static llvm::Type* getLLVMType(llvm::LLVMContext& context, TokenType tokenType);
+        static llvm::Value* evaluateConstantNumerical(llvm::LLVMContext& context, std::string value);
+        static llvm::Type* inferExpressionType(llvm::LLVMContext& context, const Expression& expr);
+        static bool canPromoteType(llvm::Type* from, llvm::Type* to);
+        static llvm::Type* getPromotedType(llvm::Type* left, llvm::Type* right);
+};

@@ -1,58 +1,18 @@
 #include "../../include/llvm/LLVMCompiler.hpp"
+#include "../../include/llvm/BinaryOperationHandler.hpp"
+#include "../../include/llvm/LLVMTypeSystem.hpp"
+#include "../../include/llvm/ErrorReporter.hpp"
+#include "../../include/llvm/LLVMLabels.hpp"
 #include <iostream>
 #include <string>
 
 LLVMCompiler::LLVMCompiler() : context(), builder(context) {
-    _module = std::make_unique<llvm::Module>("main", context);
+    _module = std::make_unique<llvm::Module>(LLVMLabels::MAIN_LABEL, context);
 }
 
 std::unique_ptr<llvm::Module> LLVMCompiler::compile(const Statement& ast) {
     ast.accept(*this);
     return std::move(_module);
-}
-
-llvm::Type* LLVMCompiler::inferExpressionType(const Expression& expr) {
-    if (const auto* literal = dynamic_cast<const LiteralExpression*>(&expr)) {
-        // Check what type the literal would create
-        const Token& token = literal->value;
-        if (token.getType() == TokenType::NUMBER) {
-            std::string value = token.getValue();
-            if (value[value.size() - 1] == 'f') {
-                return llvm::Type::getFloatTy(context);
-            } else if (value.find('e') != std::string::npos || value.find('.') !=
-std::string::npos) {
-                return llvm::Type::getDoubleTy(context);
-            }
-            return llvm::Type::getInt32Ty(context);
-        }
-    } else if (const auto* binary = dynamic_cast<const BinaryExpression*>(&expr)) {
-        // Binary expressions return the "wider" type of the operands
-        llvm::Type* leftType = inferExpressionType(*binary->left);
-        llvm::Type* rightType = inferExpressionType(*binary->right);
-
-        // Simple type promotion: double > float > int
-        if (leftType->isDoubleTy() || rightType->isDoubleTy()) {
-            return llvm::Type::getDoubleTy(context);
-        } else if (leftType->isFloatTy() || rightType->isFloatTy()) {
-            return llvm::Type::getFloatTy(context);
-        }
-        return llvm::Type::getInt32Ty(context);
-    }
-
-    return llvm::Type::getInt32Ty(context);
-}
-
-// UTILITY FUNCTIONS
-llvm::Value* LLVMCompiler::evaluateConstantNumerical(std::string value) {
-    if (value[value.size() - 1] == 'f') {
-        float floatValue = std::stof(value);
-        return llvm::ConstantFP::get(llvm::Type::getFloatTy(context), floatValue);
-    } else if (value.find('e') != std::string::npos || value.find('.') != std::string::npos) {
-        double doubleValue = std::stod(value);
-        return llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), doubleValue);
-    }
-    int intValue = std::stoi(value);
-    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), intValue);
 }
 
 void LLVMCompiler::visit(const Program& node) {
@@ -62,7 +22,7 @@ void LLVMCompiler::visit(const Program& node) {
     if (!node.statements.empty()) {
         const auto& lastStmt = node.statements.back();
         if (const auto* exprStmt = dynamic_cast<const ExpressionStatement*>(lastStmt.get())) {
-            returnType = inferExpressionType(*exprStmt->expression);
+            returnType = LLVMTypeSystem::inferExpressionType(context, *exprStmt->expression);
         }
     }
 
@@ -123,7 +83,7 @@ void LLVMCompiler::visit(const Statement& node) {
         visit(*rtrnStmt);
     }
     else { 
-        std::cerr << "Unimplemented statement type: " << typeid(node).name() << std::endl;
+        ErrorReporter::compilationError("Unimplemented statement type: " + std::string(typeid(node).name()));
     }
 
     return;
@@ -147,12 +107,9 @@ llvm::Value* LLVMCompiler::visit(const Expression& node) {
     } else if (const auto* meac = dynamic_cast<const MemberAccessExpression*>(&node)) {
         return visit(*meac);
     } 
-    // Add other expression types as needed
     
-    std::cerr << "Unknown expression type: " << typeid(node).name() << std::endl;
-    return nullptr;
+    return ErrorReporter::compilationError(std::string(typeid(node).name()));
 }
-
 
 // Statements 
 void LLVMCompiler::visit(const ExpressionStatement& node) {
@@ -160,19 +117,108 @@ void LLVMCompiler::visit(const ExpressionStatement& node) {
 }
 
 void LLVMCompiler::visit(const VariableDeclaration& node) {
+    // For now the getLLVMType does not consider arrays
+    auto varName = node.variable.getValue();
+
+    if (scopeManager.isDeclaredInCurrentScope(varName)) {
+        ErrorReporter::variableRedeclaration(varName);
+    }
     
+    auto varType = LLVMTypeSystem::getLLVMType(context, node.type.getType());
+    auto varValue = visit(*node.expr);
+
+    llvm::AllocaInst* ptr = builder.CreateAlloca(varType, nullptr, varName);
+    builder.CreateStore(varValue, ptr);
+
+    scopeManager.declare(varName, ptr);
 }
+
 void LLVMCompiler::visit(const Assignment& node) {
-    
+    auto varName = node.variable.getValue();
+    auto varPtr = scopeManager.lookup(varName);
+
+    if (!varPtr) {
+        ErrorReporter::undefinedVariable(varName);
+        return;
+    }
+
+    auto newValue = visit(*node.expr);
+
+    builder.CreateStore(newValue, varPtr);
 }
+
 void LLVMCompiler::visit(const BlockStatement& node) {
-    
+    scopeManager.enterScope();
+
+    for (const auto& stmt : node.statements) {
+        visit(*stmt);
+    }
+
+    scopeManager.exitScope();
 }
+
 void LLVMCompiler::visit(const IfStatement& node) {
-    
-}
+    // Get current function block    
+    llvm::Function* currentFunction = builder.GetInsertBlock()->getParent();
+
+    // Blocks definiton
+    llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_THEN, currentFunction);
+    llvm::BasicBlock* elseBlock = nullptr;
+    llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_MERGE, currentFunction);
+    if (node.elseBlock) {
+        elseBlock = llvm::BasicBlock::Create(context, LLVMLabels::IF_ELSE, currentFunction);
+    }    
+
+    llvm::Value* condition = visit(*node.condition);
+    if (!condition) return; // Something failed when evaluating the condition
+
+    if (!condition->getType()->isIntegerTy(1)) {
+        // TODO: Conversion of non bool type to bool
+    }
+
+    if (elseBlock) {
+        builder.CreateCondBr(condition, thenBlock, elseBlock);
+    } else {
+        builder.CreateCondBr(condition, thenBlock, mergeBlock);
+    }
+
+    builder.SetInsertPoint(thenBlock);
+    visit(*node.thenBlock);
+
+    if (!thenBlock->getTerminator()) {
+        builder.CreateBr(mergeBlock);
+    }
+
+    if (elseBlock) {
+        builder.SetInsertPoint(elseBlock);
+        visit(*node.elseBlock);
+
+        if (!elseBlock->getTerminator()) {
+            builder.CreateBr(mergeBlock);
+        }
+    }
+
+    builder.SetInsertPoint(mergeBlock);
+}   
+
 void LLVMCompiler::visit(const WhileStatement& node) {
-    
+    llvm::Function* currentFunction = builder.GetInsertBlock()->getParent();
+    llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(context, LLVMLabels::WHILE_CONDITION, currentFunction);
+    llvm::BasicBlock* bodyBlock = llvm::BasicBlock::Create(context, LLVMLabels::WHILE_BODY, currentFunction);
+    llvm::BasicBlock* exitBlock = llvm::BasicBlock::Create(context, LLVMLabels::WHILE_EXIT, currentFunction);
+
+    builder.CreateBr(conditionBlock);
+
+    builder.SetInsertPoint(conditionBlock);
+    llvm::Value* condition = visit(*node.condition);
+    if (!condition) return;
+    builder.CreateCondBr(condition, bodyBlock, exitBlock);
+
+    builder.SetInsertPoint(bodyBlock);
+    visit(*node.body);
+    builder.CreateBr(conditionBlock);
+
+    builder.SetInsertPoint(exitBlock);
 }
 void LLVMCompiler::visit(const FunctionDefinition& node) {
     
@@ -181,88 +227,94 @@ void LLVMCompiler::visit(const ReturnStatement& node) {
     
 }
 
-// Expressions 
-llvm::Value* LLVMCompiler::visit(const LiteralExpression& node) {
-    const Token& token = node.value;
-    switch (token.getType()) {
-        case TokenType::NUMBER: {
-                return evaluateConstantNumerical(token.getValue());
-            }
-        case TokenType::STRING: {
-                return builder.CreateGlobalStringPtr(token.getValue());
-            }
-        case TokenType::TRUE: {
-                return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1);
-            }
-        case TokenType::FALSE: {
-                return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0);
-            }
-        default:
-            return nullptr; 
-    }
-}
 
 llvm::Value* LLVMCompiler::visit(const BinaryExpression& node) {
-    llvm::Value* lhr = visit(*node.left);
-    llvm::Value* rhr = visit(*node.right);
+    llvm::Value* lValue = visit(*node.left);
+    llvm::Value* rValue = visit(*node.right);
+
+    if (!lValue || !rValue) {
+        return ErrorReporter::compilationError("Failed to evaluate binary expression operands");
+    }
 
     TokenType op = node.operator_.getType();
 
-    if (lhr->getType()->isIntegerTy(32) && rhr->getType()->isIntegerTy(32)) {
-        switch (op) {
-            case TokenType::PLUS: return builder.CreateAdd(lhr, rhr); // all operators such as += are missing here
-            case TokenType::MINUS: return builder.CreateSub(lhr, rhr);
-            case TokenType::MULT: return builder.CreateMul(lhr, rhr);
-            case TokenType::DIV: return builder.CreateSDiv(lhr, rhr);  
-            case TokenType::BITWISE_AND: return builder.CreateAnd(lhr, rhr);
-            case TokenType::BITWISE_OR: return builder.CreateOr(lhr, rhr);
-            case TokenType::BITWISE_XOR: return builder.CreateXor(lhr, rhr);
-            case TokenType::EQUAL_EQUAL: return builder.CreateICmpEQ(lhr, rhr);
-            case TokenType::NOT_EQUAL: return builder.CreateICmpNE(lhr, rhr);
-            case TokenType::GREATER: return builder.CreateICmpSGT(lhr, rhr);
-            case TokenType::LESS: return builder.CreateICmpSLT(lhr, rhr);
-            default:
-                return nullptr; // Unsupported;
+    // Promote operands to common type if needed
+    llvm::Type* resultType = LLVMTypeSystem::inferExpressionType(context, node);
+
+    if (lValue->getType() != resultType) {
+        if (resultType->isDoubleTy() && lValue->getType()->isFloatTy()) {
+            lValue = builder.CreateFPExt(lValue, resultType);
+        } else if (resultType->isFloatTy() && lValue->getType()->isIntegerTy()) {
+            lValue = builder.CreateSIToFP(lValue, resultType);
+        } else if (resultType->isDoubleTy() && lValue->getType()->isIntegerTy()) {
+            lValue = builder.CreateSIToFP(lValue, resultType);
         }
     }
-    if (lhr->getType()->isFloatTy() && rhr->getType()->isFloatTy()) {
-        switch (op) {
-            case TokenType::PLUS: return builder.CreateFAdd(lhr, rhr); // all operators such as += are missing here
-            case TokenType::MINUS: return builder.CreateFSub(lhr, rhr);
-            case TokenType::MULT: return builder.CreateFMul(lhr, rhr);
-            case TokenType::DIV: return builder.CreateFDiv(lhr, rhr);  
-            case TokenType::EQUAL_EQUAL: return builder.CreateFCmpOEQ(lhr, rhr);
-            case TokenType::NOT_EQUAL: return builder.CreateFCmpONE(lhr, rhr);
-            case TokenType::GREATER: return builder.CreateFCmpOGT(lhr, rhr);
-            case TokenType::LESS: return builder.CreateFCmpOLE(lhr, rhr);
-            default:
-                return nullptr; // Unsupported;
-        }
-    } 
-    // Booleans
-    if (lhr->getType()->isIntegerTy(1) && rhr->getType()->isIntegerTy(1)) {
-        switch (op) {
-            case TokenType::BITWISE_AND: return builder.CreateAnd(lhr, rhr);
-            case TokenType::BITWISE_OR: return builder.CreateOr(lhr, rhr);
-            case TokenType::BITWISE_XOR: return builder.CreateXor(lhr, rhr);
-            case TokenType::EQUAL_EQUAL: return builder.CreateICmpEQ(lhr, rhr);
-            case TokenType::NOT_EQUAL: return builder.CreateICmpNE(lhr, rhr);
-            case TokenType::GREATER: return builder.CreateICmpSGT(lhr, rhr);
-            case TokenType::LESS: return builder.CreateICmpSLT(lhr, rhr);
-            default:
-                return nullptr; // Unsupported;
+
+    if (rValue->getType() != resultType) {
+        if (resultType->isDoubleTy() && rValue->getType()->isFloatTy()) {
+            rValue = builder.CreateFPExt(rValue, resultType);
+        } else if (resultType->isFloatTy() && rValue->getType()->isIntegerTy()) {
+            rValue = builder.CreateSIToFP(rValue, resultType);
+        } else if (resultType->isDoubleTy() && rValue->getType()->isIntegerTy()) {
+            rValue = builder.CreateSIToFP(rValue, resultType);
         }
     }
-    return nullptr; 
+
+    return BinaryOperationHandler::handleOperation(builder, op, lValue, rValue);
+}
+
+llvm::Value* LLVMCompiler::visit(const LiteralExpression& node) {
+    const Token& token = node.value;
+    switch (token.getType()) {
+        case TokenType::NUMBER:
+            return LLVMTypeSystem::evaluateConstantNumerical(context, token.getValue());
+        case TokenType::STRING:
+            return builder.CreateGlobalStringPtr(token.getValue());
+        case TokenType::TRUE:
+            return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1);
+        case TokenType::FALSE:
+            return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0);
+        default:
+            return nullptr;
+    }
 }
 
 llvm::Value* LLVMCompiler::visit(const UnaryExpression& node) {
+    llvm::Value* operand = visit(*node.operand);
+    TokenType op = node.operator_.getType();
+
+    switch (op) {
+        case TokenType::MINUS:
+            if (operand->getType()->isIntegerTy())
+                return builder.CreateNeg(operand);
+            if (operand->getType()->isFloatingPointTy())
+                return builder.CreateFNeg(operand);
+            break;
+
+        case TokenType::NOT:
+            if (operand->getType()->isIntegerTy(1))
+                return builder.CreateNot(operand);
+            break;
+    }
     return nullptr;
 }
 
 llvm::Value* LLVMCompiler::visit(const IdentifierExpression& node) {
-    return nullptr;
+    auto ptr = scopeManager.lookup(node.name);
+    if (!ptr) {
+        return ErrorReporter::undefinedVariable(node.name);
+    }
+
+    llvm::AllocaInst* alloca = llvm::cast<llvm::AllocaInst>(ptr);
+    llvm::Type* allocatedType = alloca->getAllocatedType();
+
+    return builder.CreateLoad(
+                allocatedType,
+                ptr,
+                node.name + "_load");
 }
+
 llvm::Value* LLVMCompiler::visit(const MemberAccessExpression& node) {
     return nullptr;
 }

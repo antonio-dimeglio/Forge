@@ -179,7 +179,8 @@ int main(int argc, char** argv) {
     try {
         auto options = parseCommandLine(argc, argv);
         ForgeCompiler compiler(options);
-        return compiler.compile();
+        int result = compiler.compile();
+        return result; 
     } catch (const std::exception& error) {
         std::cerr << "Error: " << error.what() << "\n";
         return 1;
