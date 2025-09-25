@@ -18,7 +18,15 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"class", TokenType::CLASS},
     {"self", TokenType::SELF},
     {"true", TokenType::TRUE},
-    {"false", TokenType::FALSE}
+    {"false", TokenType::FALSE},
+    {"move", TokenType::MOVE},
+    {"null", TokenType::NULL_},
+    {"defer", TokenType::DEFER},
+    {"extern", TokenType::EXTERN},
+    {"unique", TokenType::UNIQUE},
+    {"shared", TokenType::SHARED},
+    {"weak", TokenType::WEAK},
+    {"maybe", TokenType::MAYBE}
 };
 
 char Tokenizer::current() {

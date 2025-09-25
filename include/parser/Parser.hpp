@@ -44,11 +44,14 @@ class Parser {
         MethodDefinition parseMethodDefinition();
         std::unique_ptr<Statement> parseVariableDeclaration();
         std::unique_ptr<Statement> parseAssignment();
+        std::unique_ptr<Statement> parseInferredDeclaration();
         std::unique_ptr<Statement> parseIndexAssignmentOrExpression();
         std::unique_ptr<Statement> parseIfStatement();
         std::unique_ptr<Statement> parseWhileStatement();
         std::unique_ptr<Statement> parseFunctionDefinition();
         std::unique_ptr<Statement> parseReturnStatement();
+        std::unique_ptr<Statement> parseDeferStatement();
+        std::unique_ptr<Statement> parseExternStatement();
         std::unique_ptr<BlockStatement> parseBlockStatement();
 
         void skipNewLines();

@@ -138,7 +138,6 @@ class ReturnStatement : public Statement {
 };
 
 
-
 struct FieldDefinition {
     Token name;
     Token type;    
@@ -157,20 +156,45 @@ struct MethodDefinition {
           parameters(std::move(parameters)), body(std::move(body)) {}
 };
 
-
 class ClassDefinition : public Statement {
-public:
-    Token className;
-    std::vector<Token> genericParameters;
-    std::vector<FieldDefinition> fields;
-    std::vector<MethodDefinition> methods;
+    public:
+        Token className;
+        std::vector<Token> genericParameters;
+        std::vector<FieldDefinition> fields;
+        std::vector<MethodDefinition> methods;
 
-    ClassDefinition(Token className,
-                    std::vector<Token> genericParameters,
-                    std::vector<FieldDefinition> fields,
-                    std::vector<MethodDefinition> methods)
-        : className(className), genericParameters(std::move(genericParameters)),
-          fields(std::move(fields)), methods(std::move(methods)) {}
+        ClassDefinition(Token className,
+                        std::vector<Token> genericParameters,
+                        std::vector<FieldDefinition> fields,
+                        std::vector<MethodDefinition> methods)
+            : className(className), genericParameters(std::move(genericParameters)),
+            fields(std::move(fields)), methods(std::move(methods)) {}
 
-    std::string toString(int indent = 0) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class DeferStatement : public Statement {
+    public:
+        std::unique_ptr<Expression> expression;
+
+        DeferStatement(std::unique_ptr<Expression> expression)
+            : expression(std::move(expression)) {}
+
+        
+        std::string toString(int indent = 0) const override;
+};
+
+class ExternStatement : public Statement {
+    public: 
+        Token functionName;
+        std::vector<StatementParameter> parameters; 
+        Token returnType;
+
+        ExternStatement(Token functionName,
+                        std::vector<StatementParameter> parameters,
+                        Token returnType) 
+            : functionName(functionName), parameters(std::move(parameters)),
+                returnType(returnType) {}
+
+        std::string toString(int indent = 0) const override;
 };

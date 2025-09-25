@@ -105,27 +105,38 @@ class FunctionCall : public Expression {
 };
 
 class ObjectInstantiation : public Expression {
-public:
-    Token className;
-    std::vector<std::unique_ptr<Expression>> arguments;
+    public:
+        Token className;
+        std::vector<std::unique_ptr<Expression>> arguments;
 
-    ObjectInstantiation(Token className, std::vector<std::unique_ptr<Expression>> arguments)
-        : className(className), arguments(std::move(arguments)) {}
+        ObjectInstantiation(Token className, std::vector<std::unique_ptr<Expression>> arguments)
+            : className(className), arguments(std::move(arguments)) {}
 
-    std::string toString(int indent = 0) const override;
+        std::string toString(int indent = 0) const override;
 };
 
 class GenericInstantiation : public Expression {
-public:
-    Token className;
-    std::vector<Token> typeArguments;  // [int], [string, int]
-    std::vector<std::unique_ptr<Expression>> arguments;
+    public:
+        Token className;
+        std::vector<Token> typeArguments;  // [int], [string, int]
+        std::vector<std::unique_ptr<Expression>> arguments;
 
-    GenericInstantiation(Token className,
-                         std::vector<Token> typeArguments,
-                         std::vector<std::unique_ptr<Expression>> arguments)
-        : className(className), typeArguments(std::move(typeArguments)),
-          arguments(std::move(arguments)) {}
+        GenericInstantiation(Token className,
+                            std::vector<Token> typeArguments,
+                            std::vector<std::unique_ptr<Expression>> arguments)
+            : className(className), typeArguments(std::move(typeArguments)),
+            arguments(std::move(arguments)) {}
 
-    std::string toString(int indent = 0) const override;
+        std::string toString(int indent = 0) const override;
+};
+
+class MoveExpression : public Expression {
+    public:
+        Token moveToken;
+        std::unique_ptr<Expression> operand;
+
+        MoveExpression(Token moveToken, std::unique_ptr<Expression> operand)
+            : moveToken(moveToken), operand(std::move(operand)) {}
+
+        std::string toString(int indent = 0) const override;
 };

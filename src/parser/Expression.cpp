@@ -35,6 +35,13 @@ std::string UnaryExpression::toString(int indent) const {
     return ss.str();
 }
 
+std::string MoveExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "MoveExpression: " << moveToken.getValue() << "\n";
+    ss << makeIndent(indent + 1) << "Operand:\n" << operand->toString(indent + 2);
+    return ss.str();
+}
+
 std::string FunctionCall::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;

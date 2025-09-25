@@ -32,7 +32,10 @@ static const std::unordered_map<char, OperatorInfo> operatorTable = {
         {'/', TokenType::COMMENT, "//"}  
     }}},
     {'=', {TokenType::ASSIGN, "=", {
-        {'=', TokenType::EQUAL_EQUAL, "=="}
+        {'=', TokenType::EQUAL_EQUAL, "=="},
+    }}},
+    {':', {TokenType::COLON, ":", {
+        {'=', TokenType::INFER_ASSIGN, ":="},
     }}},
     {'!', {TokenType::NOT, "!", {
         {'=', TokenType::NOT_EQUAL, "!="}
@@ -57,6 +60,5 @@ static const std::unordered_map<char, OperatorInfo> operatorTable = {
     {')', {TokenType::RPAREN, ")", {}}},
     {'{', {TokenType::LBRACE, "{", {}}},
     {'}', {TokenType::RBRACE, "}", {}}},
-    {',', {TokenType::COMMA, ",", {}}},
-    {':', {TokenType::COLON, ":", {}}}
+    {',', {TokenType::COMMA, ",", {}}}
 };

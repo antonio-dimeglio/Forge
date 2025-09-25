@@ -60,15 +60,35 @@ bool Parser::isValidTypeToken(TokenType type) {
 }
 
 std::optional<ParsedType> Parser::parseType() {
+    bool isPtr = false, isRef = false, isMutref = false;
+
+    if (current().getType() == TokenType::MULT) {
+        advance();
+        isPtr = true;
+    } else if (current().getType() == TokenType::BITWISE_AND){
+        advance();
+        if (current().getType() == TokenType::IDENTIFIER &&
+            current().getValue() == "mut") {  // TODO: Implement mut token
+                isMutref = true;
+                advance();
+        } else {
+            isRef = true;
+        }
+    }
+
     if (!isValidTypeToken(current().getType())) {
         return std::nullopt;
     }
+
 
     Token primaryType = advance();
     ParsedType result {
         .primaryType = primaryType,
         .typeParameters = {},
-        .nestingLevel = 0
+        .nestingLevel = 0,
+        .isPointer = isPtr,
+        .isReference = isRef,
+        .isMutReference = isMutref
     };
     
     // Handle Array[T], Map[K,V], etc.
@@ -113,12 +133,15 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         case TokenType::WHILE: return parseWhileStatement();
         case TokenType::DEF: return parseFunctionDefinition();
         case TokenType::RETURN: return parseReturnStatement();
+        case TokenType::DEFER: return parseDeferStatement();
+        case TokenType::EXTERN: return parseExternStatement();
         case TokenType::LBRACE: return std::unique_ptr<Statement>(parseBlockStatement().release());
         case TokenType::CLASS: return parseClassDefinition();
         case TokenType::IDENTIFIER: {
             switch (nextType) {
                 case TokenType::COLON: return parseVariableDeclaration();
                 case TokenType::ASSIGN: return parseAssignment();
+                case TokenType::INFER_ASSIGN: return parseInferredDeclaration();
                 case TokenType::LSQUARE: return parseIndexAssignmentOrExpression();
                 case TokenType::NUMBER:
                 case TokenType::IDENTIFIER:
@@ -285,11 +308,18 @@ std::unique_ptr<Expression> Parser::parseUnary() {
 
     switch (token.getType()) {
         case TokenType::NOT:
-        case TokenType::MINUS: {
-                advance();
-                auto operand = parseUnary();
-                return std::make_unique<UnaryExpression>(token, std::move(operand));
-            }
+        case TokenType::MINUS:
+        case TokenType::BITWISE_AND:
+        case TokenType::MULT: {
+            advance();
+            auto operand = parseUnary();
+            return std::make_unique<UnaryExpression>(token, std::move(operand));
+        }
+        case TokenType::MOVE: {
+            advance();
+            auto operand = parseUnary();
+            return std::make_unique<MoveExpression>(token, std::move(operand));
+        }
         default:
             return parsePostfix();
     }
@@ -496,6 +526,28 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
 
     return std::make_unique<Assignment>(
         identifier,
+        std::move(expression)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseInferredDeclaration() {
+    Token identifier = advance();
+
+    if (identifier.getType() != TokenType::IDENTIFIER) {
+        throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
+    }
+
+    expect(TokenType::INFER_ASSIGN, "Expected :=");
+
+    auto expression = parseExpression();
+
+    // For now, we'll create a special VariableDeclaration with inferred type
+    // The type will be inferred from the expression during semantic analysis
+    Token inferredType = Token(TokenType::IDENTIFIER, "auto", identifier.getLine(), identifier.getColumn());
+
+    return std::make_unique<VariableDeclaration>(
+        identifier,
+        inferredType,  // Placeholder - actual type inference happens later
         std::move(expression)
     );
 }
@@ -869,4 +921,58 @@ MethodDefinition Parser::parseMethodDefinition() {
         std::move(parameters),
         parseBlockStatement() 
     );
+}
+
+std::unique_ptr<Statement> Parser::parseDeferStatement() {
+    expect(TokenType::DEFER, "Expected defer");
+
+    auto expression = parseExpression();
+
+    return std::make_unique<DeferStatement>(std::move(expression));
+}
+
+std::unique_ptr<Statement> Parser::parseExternStatement() {
+    expect(TokenType::EXTERN, "Expected extern");
+    expect(TokenType::DEF, "Expected def");
+
+    Token functionName = expect(TokenType::IDENTIFIER, "Expected function name");
+    expect(TokenType::LPAREN, "Expected (");
+
+    std::vector<StatementParameter> params;
+
+    if (current().getType() != TokenType::RPAREN) {
+        while (true) {
+            Token name = expect(TokenType::IDENTIFIER, "Expected parameter name");
+            expect(TokenType::COLON, "Expected :");
+
+            auto typeResult = parseType();
+            if (!typeResult.has_value()) {
+                throw ParsingException("Expected valid parameter type", current().getLine(), current().getColumn());
+            }
+
+            params.push_back(StatementParameter {
+                .name = name,
+                .type = typeResult->primaryType
+            });
+
+            if (current().getType() == TokenType::COMMA) {
+                advance();
+                continue;
+            } else if (current().getType() == TokenType::RPAREN) {
+                break;
+            } else {
+                throw ParsingException("Expected ',' or ')'", current().getLine(), current().getColumn());
+            }
+        }
+    }
+
+    expect(TokenType::RPAREN, "Expected )");
+    expect(TokenType::ARROW, "Expected ->");
+
+    auto returnTypeResult = parseType();
+    if (!returnTypeResult.has_value()) {
+        throw ParsingException("Expected valid return type", current().getLine(), current().getColumn());
+    }
+
+    return std::make_unique<ExternStatement>(functionName, std::move(params), returnTypeResult->primaryType);
 }

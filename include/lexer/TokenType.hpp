@@ -15,6 +15,7 @@
     X(MULT, "MULT") \
     X(DIV, "DIV") \
     X(ASSIGN, "ASSIGN") \
+    X(INFER_ASSIGN, "INFER_ASSIGN") \
     X(EQUAL_EQUAL, "EQUAL_EQUAL") \
     X(NOT_EQUAL, "NOT_EQUAL") \
     X(LESS, "LESS") \
@@ -47,6 +48,10 @@
     X(DOUBLE, "DOUBLE") \
     X(CLASS, "CLASS") \
     X(SELF, "SELF") \
+    X(UNIQUE, "UNIQUE") \
+    X(SHARED, "SHARED") \
+    X(WEAK, "WEAK") \
+    X(MAYBE, "MAYBE") \
     \
     /* Punctuation */ \
     X(LPAREN, "LPAREN") \
@@ -55,6 +60,8 @@
     X(RBRACE, "RBRACE") \
     X(LSQUARE, "LSQUARE") \
     X(RSQUARE, "RSQUARE") \
+    X(LANGLE, "LANGLE") \
+    X(RANGLE, "RANGLE") \
     X(COMMA, "COMMA") \
     X(COLON, "COLON") \
     X(DOT, "DOT") \
@@ -63,7 +70,16 @@
     X(IDENTIFIER, "IDENTIFIER") \
     X(NEWLINE, "NEWLINE") \
     X(END_OF_FILE, "END_OF_FILE") \
-    X(COMMENT, "COMMENT")
+    X(COMMENT, "COMMENT") \
+    X(EXTERN, "EXTERN") \
+    \
+    /* Memory */ \
+    X(RAW_PTR, "RAW_PTR") \
+    X(IMM_REF, "IMM_REF") \
+    X(MUT_REF, "MUT_REF") \
+    X(MOVE, "MOVE") \
+    X(NULL_, "NULL") \
+    X(DEFER, "DEFER")
 
 
 enum class TokenType {

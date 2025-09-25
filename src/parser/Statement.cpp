@@ -139,3 +139,25 @@ std::string ClassDefinition::toString(int indent) const {
 
     return ss.str();
 }
+
+std::string DeferStatement::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "DeferStatement:\n"
+       << expression->toString(indent + 1);
+    return ss.str();
+}
+
+std::string ExternStatement::toString(int indent) const {
+    std::string indentStr = std::string(indent * 2, ' ');
+    std::stringstream ss;
+    ss << indentStr << "ExternStatement: " << functionName.getValue() << "(";
+
+    for (size_t i = 0; i < parameters.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << parameters[i].name.getValue() << ": " << parameters[i].type.getValue();
+    }
+
+    ss << ") -> " << returnType.getValue();
+    return ss.str();
+}
