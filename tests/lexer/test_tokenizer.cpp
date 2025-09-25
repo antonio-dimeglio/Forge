@@ -1241,8 +1241,8 @@ TEST_F(TokenizerTest, NestedArrayTypes) {
 }
 
 TEST_F(TokenizerTest, ArrayVariableDeclaration) {
-    auto tokens = tokenize("numbers: Array[int] = Array.new()");
-    ASSERT_EQ(tokens.size(), 13);
+    auto tokens = tokenize("numbers: Array[int] = new Array[int](10)");
+    ASSERT_EQ(tokens.size(), 16);
     expectToken(tokens[0], TokenType::IDENTIFIER, "numbers");
     expectToken(tokens[1], TokenType::COLON);
     expectToken(tokens[2], TokenType::IDENTIFIER, "Array");
@@ -1250,11 +1250,14 @@ TEST_F(TokenizerTest, ArrayVariableDeclaration) {
     expectToken(tokens[4], TokenType::INT);
     expectToken(tokens[5], TokenType::RSQUARE);
     expectToken(tokens[6], TokenType::ASSIGN);
-    expectToken(tokens[7], TokenType::IDENTIFIER, "Array");
-    expectToken(tokens[8], TokenType::DOT);
-    expectToken(tokens[9], TokenType::IDENTIFIER, "new");
-    expectToken(tokens[10], TokenType::LPAREN, "(");
-    expectToken(tokens[11], TokenType::RPAREN, ")");
+    expectToken(tokens[7], TokenType::NEW, "new");
+    expectToken(tokens[8], TokenType::IDENTIFIER, "Array");
+    expectToken(tokens[9], TokenType::LSQUARE);
+    expectToken(tokens[10], TokenType::INT);
+    expectToken(tokens[11], TokenType::RSQUARE);
+    expectToken(tokens[12], TokenType::LPAREN);
+    expectToken(tokens[13], TokenType::NUMBER);
+    expectToken(tokens[14], TokenType::RPAREN);
 }
 
 TEST_F(TokenizerTest, ArrayMethodCalls) {

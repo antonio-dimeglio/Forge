@@ -79,7 +79,8 @@
     X(MUT_REF, "MUT_REF") \
     X(MOVE, "MOVE") \
     X(NULL_, "NULL") \
-    X(DEFER, "DEFER")
+    X(DEFER, "DEFER") \
+    X(NEW, "NEW") \
 
 
 enum class TokenType {

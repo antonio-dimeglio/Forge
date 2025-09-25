@@ -50,14 +50,15 @@ class VariableDeclaration: public Statement {
 
 class Assignment: public Statement {
     public:
-        Token variable;
-        std::unique_ptr<Expression> expr;
+        std::unique_ptr<Expression> lvalue;  // Left-hand side expression (*ptr, arr[i], obj.field, etc.)
+        std::unique_ptr<Expression> rvalue;  // Right-hand side expression
         Assignment(
-            Token variable,
-            std::unique_ptr<Expression> expr
-        ) : variable(variable), expr(std::move(expr)) {}
+            std::unique_ptr<Expression> lvalue,
+            std::unique_ptr<Expression> rvalue
+        ) : lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
         std::string toString(int indent = 0) const override;
 };
+
 
 class IndexAssignment: public Statement {
     public:
@@ -116,14 +117,16 @@ class FunctionDefinition : public Statement {
     public:
         Token functionName;
         Token functionReturnType;
+        std::vector<Token> typeParameters;
         std::vector<StatementParameter> parameters;
         std::unique_ptr<BlockStatement> body;
         FunctionDefinition(
             Token functionName, Token functionReturnType,
+            std::vector<Token> typeParameters,
             std::vector<StatementParameter> parameters,
             std::unique_ptr<BlockStatement> body
         ) : functionName(functionName), functionReturnType(functionReturnType),
-            parameters(parameters), body(std::move(body)) {}
+            typeParameters(typeParameters), parameters(parameters), body(std::move(body)) {}
         std::string toString(int indent = 0) const override;
 };
 

@@ -1,0 +1,3 @@
+// Smart pointer comparison
+player1: unique Player := new Player("Alice", 100)
+player2: unique Player := new Player("Alice", 100)

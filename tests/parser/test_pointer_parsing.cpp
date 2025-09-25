@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 #include "../../include/parser/Parser.hpp"
 #include "../../include/parser/ParserException.hpp"
-#include "../../include/parser/Expression.hpp"
-#include "../../include/parser/Statement.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
 
 class PointerParsingTest : public ::testing::Test {
@@ -17,22 +15,21 @@ protected:
         Tokenizer tokenizer(source);
         auto tokens = tokenizer.tokenize();
         parser.reset(tokens);
-        auto program = parser.parseProgram();
-        auto programStmt = dynamic_cast<Program*>(program.get());
-        if (!programStmt || programStmt->statements.empty()) return nullptr;
-        return std::move(programStmt->statements[0]);
+        return parser.parseStatement();
     }
 
     std::unique_ptr<Expression> parseExpression(const std::string& source) {
-        auto stmt = parseStatement(source);
-        auto exprStmt = dynamic_cast<ExpressionStatement*>(stmt.get());
-        if (!exprStmt) return nullptr;
-        return std::move(exprStmt->expression);
+        Tokenizer tokenizer(source);
+        auto tokens = tokenizer.tokenize();
+        parser.reset(tokens);
+        return parser.parseExpression();
     }
 
-    // For type parsing, we'll need to use function parameters or variable declarations
-    std::unique_ptr<Statement> parseVariableWithType(const std::string& varDecl) {
-        return parseStatement(varDecl);
+    std::optional<ParsedType> parseType(const std::string& source) {
+        Tokenizer tokenizer(source);
+        auto tokens = tokenizer.tokenize();
+        parser.reset(tokens);
+        return parser.parseType();
     }
 };
 
@@ -74,7 +71,7 @@ TEST_F(PointerParsingTest, MoveExpressionInAssignment) {
     ASSERT_NE(assignment, nullptr);
 
     // The right side should be a move expression
-    auto moveExpr = dynamic_cast<MoveExpression*>(assignment->expr.get());
+    auto moveExpr = dynamic_cast<MoveExpression*>(assignment->rvalue.get());
     ASSERT_NE(moveExpr, nullptr);
 }
 
@@ -220,18 +217,17 @@ TEST_F(PointerParsingTest, DeferComplexExpression) {
     EXPECT_EQ(funcCall->functionName, "close");
 }
 
-TEST_F(PointerParsingTest, DeferWithAssignment) {
-    auto stmt = parseStatement("defer cleanup(ptr)");
+TEST_F(PointerParsingTest, DeferInBlock) {
+    auto stmt = parseStatement("{ defer cleanup()\n process()\n }");
 
     ASSERT_NE(stmt, nullptr);
-    auto deferStmt = dynamic_cast<DeferStatement*>(stmt.get());
-    ASSERT_NE(deferStmt, nullptr);
+    auto blockStmt = dynamic_cast<BlockStatement*>(stmt.get());
+    ASSERT_NE(blockStmt, nullptr);
 
-    // The expression should be a function call with argument
-    auto funcCall = dynamic_cast<FunctionCall*>(deferStmt->expression.get());
-    ASSERT_NE(funcCall, nullptr);
-    EXPECT_EQ(funcCall->functionName, "cleanup");
-    EXPECT_EQ(funcCall->arguments.size(), 1);
+    EXPECT_EQ(blockStmt->statements.size(), 2);
+
+    auto deferStmt = dynamic_cast<DeferStatement*>(blockStmt->statements[0].get());
+    ASSERT_NE(deferStmt, nullptr);
 }
 
 // ============= EXTERN DECLARATION TESTS =============
@@ -247,7 +243,7 @@ TEST_F(PointerParsingTest, ExternSimpleFunction) {
     EXPECT_EQ(externStmt->parameters.size(), 1);
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "size");
     EXPECT_EQ(externStmt->parameters[0].type.getValue(), "int");
-    EXPECT_EQ(externStmt->returnType.getValue(), "void");  // Note: pointer info stored in ParsedType
+    EXPECT_EQ(externStmt->returnType.getValue(), "*void");  // Note: pointer info stored in ParsedType
 }
 
 TEST_F(PointerParsingTest, ExternMultipleParameters) {
@@ -261,10 +257,10 @@ TEST_F(PointerParsingTest, ExternMultipleParameters) {
     EXPECT_EQ(externStmt->parameters.size(), 3);
 
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "dest");
-    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "void");
+    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "*void");
 
     EXPECT_EQ(externStmt->parameters[1].name.getValue(), "src");
-    EXPECT_EQ(externStmt->parameters[1].type.getValue(), "void");
+    EXPECT_EQ(externStmt->parameters[1].type.getValue(), "*void");
 
     EXPECT_EQ(externStmt->parameters[2].name.getValue(), "n");
     EXPECT_EQ(externStmt->parameters[2].type.getValue(), "int");
@@ -285,36 +281,59 @@ TEST_F(PointerParsingTest, ExternNoParameters) {
 // ============= POINTER TYPE PARSING TESTS =============
 
 TEST_F(PointerParsingTest, RawPointerType) {
-    auto stmt = parseStatement("ptr: *int = malloc(4)");
+    auto type = parseType("*int");
 
-    ASSERT_NE(stmt, nullptr);
-    auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get());
-    ASSERT_NE(varDecl, nullptr);
-
-    EXPECT_EQ(varDecl->variable.getValue(), "ptr");
-    EXPECT_EQ(varDecl->type.getValue(), "int");  // Base type stored, pointer info in ParsedType
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "*int");
+    EXPECT_TRUE(type->isPointer);
+    EXPECT_FALSE(type->isReference);
+    EXPECT_FALSE(type->isMutReference);
 }
 
 TEST_F(PointerParsingTest, ImmutableReferenceType) {
-    auto stmt = parseStatement("ref: &str = &text");
+    auto type = parseType("&str");
 
-    ASSERT_NE(stmt, nullptr);
-    auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get());
-    ASSERT_NE(varDecl, nullptr);
-
-    EXPECT_EQ(varDecl->variable.getValue(), "ref");
-    EXPECT_EQ(varDecl->type.getValue(), "str");
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "&str");
+    EXPECT_FALSE(type->isPointer);
+    EXPECT_TRUE(type->isReference);
+    EXPECT_FALSE(type->isMutReference);
 }
 
 TEST_F(PointerParsingTest, MutableReferenceType) {
-    auto stmt = parseStatement("ref: &mut Player = &mut player");
+    auto type = parseType("&mut Player");
 
-    ASSERT_NE(stmt, nullptr);
-    auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get());
-    ASSERT_NE(varDecl, nullptr);
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "&mut Player");
+    EXPECT_FALSE(type->isPointer);
+    EXPECT_FALSE(type->isReference);
+    EXPECT_TRUE(type->isMutReference);
+}
 
-    EXPECT_EQ(varDecl->variable.getValue(), "ref");
-    EXPECT_EQ(varDecl->type.getValue(), "Player");
+TEST_F(PointerParsingTest, PointerToPointer) {
+    auto type = parseType("**int");
+
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "**int");  // Full pointer chain stored
+    EXPECT_TRUE(type->isPointer);
+}
+
+TEST_F(PointerParsingTest, TriplePointer) {
+    // Test even more complex pointer chains
+    auto type = parseType("***int");
+
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "***int");
+    EXPECT_TRUE(type->isPointer);
+}
+
+TEST_F(PointerParsingTest, MixedPointerReference) {
+    // Test mixed pointer and reference: *&int (pointer to reference)
+    auto type = parseType("*&int");
+
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->primaryType.getValue(), "*&int");
+    EXPECT_TRUE(type->isPointer);
 }
 
 TEST_F(PointerParsingTest, PointerInVariableDeclaration) {
@@ -325,7 +344,7 @@ TEST_F(PointerParsingTest, PointerInVariableDeclaration) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "ptr");
-    EXPECT_EQ(varDecl->type.getValue(), "int");  // Base type stored in token
+    EXPECT_EQ(varDecl->type.getValue(), "*int");  // Base type stored in token
 
     // Expression should be address-of
     auto addressOf = dynamic_cast<UnaryExpression*>(varDecl->expr.get());
@@ -342,7 +361,7 @@ TEST_F(PointerParsingTest, ReferenceInFunctionParameter) {
 
     EXPECT_EQ(funcDef->parameters.size(), 1);
     EXPECT_EQ(funcDef->parameters[0].name.getValue(), "data");
-    EXPECT_EQ(funcDef->parameters[0].type.getValue(), "Player");
+    EXPECT_EQ(funcDef->parameters[0].type.getValue(), "&mut Player");
 }
 
 // ============= ERROR HANDLING TESTS =============
@@ -374,10 +393,21 @@ TEST_F(PointerParsingTest, InvalidTypeInference) {
 // ============= INTEGRATION TESTS =============
 
 TEST_F(PointerParsingTest, CompletePointerProgram) {
-    std::string program = "extern def malloc(size: int) -> *void\ndef allocate_player() -> *Player {\nptr: *Player = malloc(4)\nreturn ptr\n}";
+    std::string program = R"(
+        extern def malloc(size: int) -> *void
+
+        def allocate_player(name: str) -> *Player {
+            ptr: *Player = malloc(sizeof(Player))
+            player := Player(name, 100)
+            *ptr = move player
+            defer cleanup_if_error()
+            return ptr
+        }
+    )";
 
     Tokenizer tokenizer(program);
     auto tokens = tokenizer.tokenize();
+    
     parser.reset(tokens);
 
     auto ast = parser.parseProgram();
@@ -387,3 +417,67 @@ TEST_F(PointerParsingTest, CompletePointerProgram) {
     ASSERT_NE(programStmt, nullptr);
     EXPECT_GT(programStmt->statements.size(), 0);
 }
+
+// ============= DEREFERENCED ASSIGNMENT TESTS =============
+
+TEST_F(PointerParsingTest, DereferencedAssignmentFixed) {
+    // Now this should correctly parse as an Assignment with UnaryExpression LHS
+    auto stmt = parseStatement("*ptr = 42");
+
+    ASSERT_NE(stmt, nullptr);
+    auto assignment = dynamic_cast<Assignment*>(stmt.get());
+    ASSERT_NE(assignment, nullptr);
+
+    // LHS should be dereference expression (*ptr)
+    auto derefExpr = dynamic_cast<UnaryExpression*>(assignment->lvalue.get());
+    ASSERT_NE(derefExpr, nullptr);
+    EXPECT_EQ(derefExpr->operator_.getType(), TokenType::MULT);
+
+    // Check that the operand of dereference is identifier "ptr"
+    auto identifierExpr = dynamic_cast<IdentifierExpression*>(derefExpr->operand.get());
+    ASSERT_NE(identifierExpr, nullptr);
+    EXPECT_EQ(identifierExpr->name, "ptr");
+
+    // RHS should be literal 42
+    auto literal = dynamic_cast<LiteralExpression*>(assignment->rvalue.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(literal->value.getValue(), "42");
+}
+
+TEST_F(PointerParsingTest, ArrayIndexAssignmentFixed) {
+    // Test arr[i] = value
+    auto stmt = parseStatement("arr[0] = 100");
+
+    ASSERT_NE(stmt, nullptr);
+    auto assignment = dynamic_cast<Assignment*>(stmt.get());
+    ASSERT_NE(assignment, nullptr);
+
+    // LHS should be array index access
+    auto indexExpr = dynamic_cast<IndexAccessExpression*>(assignment->lvalue.get());
+    ASSERT_NE(indexExpr, nullptr);
+
+    // RHS should be literal 100
+    auto literal = dynamic_cast<LiteralExpression*>(assignment->rvalue.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(literal->value.getValue(), "100");
+}
+
+TEST_F(PointerParsingTest, MemberAccessAssignmentFixed) {
+    // Test obj.field = value
+    auto stmt = parseStatement("obj.field = 200");
+
+    ASSERT_NE(stmt, nullptr);
+    auto assignment = dynamic_cast<Assignment*>(stmt.get());
+    ASSERT_NE(assignment, nullptr);
+
+    // LHS should be member access
+    auto memberExpr = dynamic_cast<MemberAccessExpression*>(assignment->lvalue.get());
+    ASSERT_NE(memberExpr, nullptr);
+    EXPECT_EQ(memberExpr->memberName, "field");
+
+    // RHS should be literal 200
+    auto literal = dynamic_cast<LiteralExpression*>(assignment->rvalue.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(literal->value.getValue(), "200");
+}
+

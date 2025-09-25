@@ -26,7 +26,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"unique", TokenType::UNIQUE},
     {"shared", TokenType::SHARED},
     {"weak", TokenType::WEAK},
-    {"maybe", TokenType::MAYBE}
+    {"maybe", TokenType::MAYBE},
+    {"new", TokenType::NEW}
 };
 
 char Tokenizer::current() {

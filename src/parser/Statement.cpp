@@ -14,8 +14,9 @@ std::string VariableDeclaration::toString(int indent) const {
 std::string Assignment::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
-    ss << indentStr << "Assignment: " << variable.getValue() << " = \n"
-       << expr->toString(indent + 1);
+    ss << indentStr << "Assignment:\n"
+       << indentStr << "  LValue:\n" << lvalue->toString(indent + 2) << "\n"
+       << indentStr << "  RValue:\n" << rvalue->toString(indent + 2);
     return ss.str();
 }
 
@@ -66,7 +67,18 @@ std::string WhileStatement::toString(int indent) const {
 std::string FunctionDefinition::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
-    ss << indentStr << "FunctionDefinition: " << functionName.getValue() << "\n";
+    ss << indentStr << "FunctionDefinition: " << functionName.getValue();
+
+    if (!typeParameters.empty()) {
+        ss << "<";
+        for (size_t i = 0; i < typeParameters.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << typeParameters[i].getValue();
+        }
+        ss << ">";
+    }
+    ss << "\n";
+
     ss << indentStr << "  ReturnType: " << functionReturnType.getValue() << "\n";
     ss << indentStr << "  Parameters:\n";
     for (const auto& param : parameters) {

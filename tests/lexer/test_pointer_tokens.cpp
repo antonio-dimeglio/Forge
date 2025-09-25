@@ -153,7 +153,7 @@ TEST_F(PointerTokenTest, SmartPointerCreation) {
 
     ASSERT_EQ(tokens.size(), 7);
     expectToken(tokens[0], TokenType::UNIQUE, "unique"); 
-    expectToken(tokens[1], TokenType::IDENTIFIER, "new");   
+    expectToken(tokens[1], TokenType::NEW, "new");   
     expectToken(tokens[2], TokenType::IDENTIFIER, "Player");
     expectToken(tokens[3], TokenType::LPAREN, "(");
     expectToken(tokens[4], TokenType::STRING, "Alice");
@@ -261,7 +261,7 @@ TEST_F(PointerTokenTest, SmartPointerInference) {
     expectToken(tokens[0], TokenType::IDENTIFIER, "player");
     expectToken(tokens[1], TokenType::INFER_ASSIGN, ":=");
     expectToken(tokens[2], TokenType::UNIQUE, "unique");
-    expectToken(tokens[3], TokenType::IDENTIFIER, "new");
+    expectToken(tokens[3], TokenType::NEW, "new");
     expectToken(tokens[4], TokenType::IDENTIFIER, "Player");
     expectToken(tokens[5], TokenType::LPAREN, "(");
     expectToken(tokens[6], TokenType::STRING, "Alice");
@@ -299,7 +299,7 @@ TEST_F(PointerTokenTest, SharedPointerInference) {
     expectToken(tokens[0], TokenType::IDENTIFIER, "config");
     expectToken(tokens[1], TokenType::INFER_ASSIGN, ":=");
     expectToken(tokens[2], TokenType::SHARED, "shared");
-    expectToken(tokens[3], TokenType::IDENTIFIER, "new");
+    expectToken(tokens[3], TokenType::NEW, "new");
     expectToken(tokens[4], TokenType::IDENTIFIER, "GameConfig");
     expectToken(tokens[5], TokenType::LPAREN, "(");
     expectToken(tokens[6], TokenType::RPAREN, ")");

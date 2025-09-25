@@ -15,6 +15,7 @@ This document defines the complete implementation plan for Forge's pointer syste
 - **Heap allocation** for all smart pointer types
 - **Separate array types** (not smart pointer to arrays)
 
+
 ### Memory Management Strategy
 - **RAII (Resource Acquisition Is Initialization)** for automatic cleanup
 - **Reference counting** for shared pointers
@@ -71,7 +72,7 @@ weapon.reset()                  # weapon becomes null
 weapon = none                   # Alternative syntax
 
 # Null checking with optional
-maybe_player: optional[unique Player] = none
+maybe_player: optional<unique Player> = none
 maybe_player = some(unique Player := new Player("Bob", 80))
 
 if maybe_player.is_some() {
@@ -140,25 +141,25 @@ invalid_ref: &str = get_name_ref(&player)  # Compile-time lifetime checking
 
 ### Advanced Pointer Operations
 ```forge
-# Pointer arithmetic (raw pointers only)
-array: *int = malloc(sizeof(int) * 10)
+// Pointer arithmetic (raw pointers only)
+array: *int = malloc(sizeof<int>() * 10)
 ptr: *int = array
-ptr = ptr + 1                   # Move to next element
-*ptr = 42                       # Assign value
-ptr[2] = 100                    # Array-style access
+ptr = ptr + 1                   // Move to next element
+*ptr = 42                       // Assign value
+ptr[2] = 100                    // Array-style access
 
-# Pointer comparison
+// Pointer comparison
 ptr1: *int = &some_int
 ptr2: *int = &other_int
-same_address: bool = (ptr1 == ptr2)     # Address comparison
-
-# Smart pointer comparison
+same_address: bool = (ptr1 == ptr2)     // Address comparison
+ 
+// Smart pointer comparison
 player1: unique Player := new Player("Alice", 100)
 player2: unique Player := new Player("Alice", 100)
-same_identity: bool = player1.same_as(&player2)  # false (different objects)
-same_content: bool = (player1 == player2)        # true (same data, if == implemented)
+same_identity: bool = player1.same_as(&player2)  // false (different objects)
+same_content: bool = (player1 == player2)        // true (same data, if == implemented)
 
-# Type casting (unsafe)
+// Type casting (unsafe)
 void_ptr: *void = ptr1 as *void
 int_ptr: *int = void_ptr as *int
 ```
@@ -205,9 +206,9 @@ int_ptr: *int = void_ptr as *int
 **Status**: Not Started
 
 #### Lexer Changes
-- [ ] Add `unique`, `shared`, `weak` keywords
-- [ ] Add `some`, `none` keywords for optional types
-- [ ] Add tests for smart pointer keyword tokenization
+- [X] Add `unique`, `shared`, `weak` keywords
+- [X] Add `some`, `none` keywords for optional types
+- [X] Add tests for smart pointer keyword tokenization
 
 #### Parser Changes
 - [ ] Add smart pointer type parsing (`unique T`, `shared T`, `weak T`)

@@ -45,8 +45,18 @@ std::string MoveExpression::toString(int indent) const {
 std::string FunctionCall::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
-    ss << indentStr << "FunctionCall: " << functionName << "()";
-    // Later you can add argument printing
+    ss << indentStr << "FunctionCall: " << functionName;
+
+    if (!typeArguments.empty()) {
+        ss << "<";
+        for (size_t i = 0; i < typeArguments.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << typeArguments[i].getValue();
+        }
+        ss << ">";
+    }
+    ss << "()";
+
     return ss.str();
 }
 

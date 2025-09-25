@@ -140,17 +140,28 @@ void LLVMCompiler::visit(const VariableDeclaration& node) {
 }
 
 void LLVMCompiler::visit(const Assignment& node) {
-    auto varName = node.variable.getValue();
-    auto varPtr = scopeManager.lookup(varName);
+    // TODO: Full implementation needed to handle all LHS expression types:
+    // - *ptr = value (dereference assignment)
+    // - arr[i] = value (array index assignment)
+    // - obj.field = value (member access assignment)
 
-    if (!varPtr) {
-        ErrorReporter::undefinedVariable(varName);
-        return;
+    // For now, handle simple identifier assignment
+    auto identifierExpr = dynamic_cast<const IdentifierExpression*>(node.lvalue.get());
+    if (identifierExpr) {
+        auto varName = identifierExpr->name;
+        auto varPtr = scopeManager.lookup(varName);
+
+        if (!varPtr) {
+            ErrorReporter::undefinedVariable(varName);
+            return;
+        }
+
+        auto newValue = visit(*node.rvalue);
+        builder.CreateStore(newValue, varPtr);
+    } else {
+        // Complex LHS assignment not yet implemented
+        throw std::runtime_error("Complex assignment LHS not yet implemented in LLVM compiler");
     }
-
-    auto newValue = visit(*node.expr);
-
-    builder.CreateStore(newValue, varPtr);
 }
 
 void LLVMCompiler::visit(const BlockStatement& node) {

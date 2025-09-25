@@ -96,10 +96,11 @@ class UnaryExpression: public Expression {
 class FunctionCall : public Expression {
     public:
         std::string functionName;
-        std::vector<std::unique_ptr<Expression>> arguments;  
+        std::vector<Token> typeArguments;
+        std::vector<std::unique_ptr<Expression>> arguments;
 
-        FunctionCall(std::string name, std::vector<std::unique_ptr<Expression>> args = {})
-            : functionName(name), arguments(std::move(args)) {}
+        FunctionCall(std::string name, std::vector<Token> typeArgs = {}, std::vector<std::unique_ptr<Expression>> args = {})
+            : functionName(name), typeArguments(typeArgs), arguments(std::move(args)) {}
 
         std::string toString(int indent = 0) const override;
 };

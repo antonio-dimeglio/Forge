@@ -787,9 +787,14 @@ TEST_F(StatementParserTest, ParseSimpleAssignment) {
 
     auto assignment = dynamic_cast<Assignment*>(program->statements[0].get());
     ASSERT_NE(assignment, nullptr);
-    EXPECT_EQ(assignment->variable.getValue(), "x");
 
-    auto literal = dynamic_cast<LiteralExpression*>(assignment->expr.get());
+    // LHS should be identifier "x"
+    auto identifierExpr = dynamic_cast<IdentifierExpression*>(assignment->lvalue.get());
+    ASSERT_NE(identifierExpr, nullptr);
+    EXPECT_EQ(identifierExpr->name, "x");
+
+    // RHS should be literal 100
+    auto literal = dynamic_cast<LiteralExpression*>(assignment->rvalue.get());
     ASSERT_NE(literal, nullptr);
     EXPECT_EQ(literal->value.getValue(), "100");
 }
@@ -800,14 +805,20 @@ TEST_F(StatementParserTest, ParseAssignmentWithComplexExpression) {
     auto assignment = dynamic_cast<Assignment*>(program->statements[0].get());
 
     ASSERT_NE(assignment, nullptr);
-    EXPECT_EQ(assignment->variable.getValue(), "result");
 
-    auto binaryExpr = dynamic_cast<BinaryExpression*>(assignment->expr.get());
+    // LHS should be identifier "result"
+    auto identifierExpr = dynamic_cast<IdentifierExpression*>(assignment->lvalue.get());
+    ASSERT_NE(identifierExpr, nullptr);
+    EXPECT_EQ(identifierExpr->name, "result");
+
+    // RHS should be a binary expression (a * 2 + b)
+    auto binaryExpr = dynamic_cast<BinaryExpression*>(assignment->rvalue.get());
     ASSERT_NE(binaryExpr, nullptr);
     EXPECT_EQ(binaryExpr->operator_.getType(), TokenType::PLUS);
 }
 
 TEST_F(StatementParserTest, ParseAssignmentMissingEqual) {
+    // Now with improved validation, "x 42" should throw error for remaining tokens
     EXPECT_THROW(parseStatement("x 42"), ParsingException);
 }
 
@@ -896,7 +907,11 @@ TEST_F(StatementParserTest, ParseIfWithVariableAssignment) {
     ASSERT_NE(ifStmt->thenBlock, nullptr);
     auto bodyStmt = dynamic_cast<Assignment*>(ifStmt->thenBlock->statements[0].get());
     ASSERT_NE(bodyStmt, nullptr);
-    EXPECT_EQ(bodyStmt->variable.getValue(), "x");
+
+    // Check LHS is identifier "x"
+    auto identifierExpr = dynamic_cast<IdentifierExpression*>(bodyStmt->lvalue.get());
+    ASSERT_NE(identifierExpr, nullptr);
+    EXPECT_EQ(identifierExpr->name, "x");
 }
 
 // ===== IF STATEMENT ERROR TESTS =====

@@ -24,14 +24,14 @@ Forge is a modern systems programming language that combines clean syntax with m
 ### Target Features
 **Immediate Goals:**
 - Functions with proper calling conventions
-- Basic types (int, float, bool, string, arrays)
+- Basic types (int, float, bool, string, pointers)
 - LLVM code generation for expressions and statements
 
 **Medium-term Goals:**
 - Safe pointer types and memory management
 - Pattern matching on Option/Result types
 - Module system and imports
-- Basic OOP (structs with methods)
+- OOP
 
 **Long-term Goals:**
 - C interoperability (extern functions)
@@ -86,7 +86,7 @@ sudo apt-get install -y build-essential llvm-15-dev libllvm15 llvm-15-tools clan
 llvm-config --version
 
 # Clone and build
-git clone https://github.com/yourusername/forge.git
+git clone https://github.com/antonio-dimeglio/forge.git
 cd forge
 make
 ```
@@ -140,14 +140,8 @@ Running main() from ./googletest/src/gtest_main.cc
 true && (x > 0 || y < 100)
 
 // Variables and assignments
-int x = 42
-str name = "Alice"
-bool active = true
-
-// Arrays
-Array<int> numbers = [1, 2, 3, 4, 5]
-numbers[0] = 10
-int length = numbers.length()
+x: int = 42
+name := "Alice" // Type inferred
 
 // Functions
 def fibonacci(n: int) -> int {
