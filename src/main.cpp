@@ -3,6 +3,8 @@
 #include <vector>
 #include <fstream>
 #include <memory>
+#include <cstdlib>  // for system()
+#include <cstdio>   // for remove()
 
 #include "../include/CLI11.hpp"
 #include "../include/llvm/LLVMCompiler.hpp"
@@ -17,6 +19,7 @@ struct CompilerOptions {
     bool lexer_only = false;
     bool parser_only = false;
     bool compile_only = false;
+    bool generate_executable = true;  // Default: generate executable
 
     // Debug options
     bool verbose = false;
@@ -72,16 +75,43 @@ private:
         if (options.parser_only) return 0;
 
         auto compiler = LLVMCompiler();
-        auto module = compiler.compile(*ast);
+        compiler.compile(*ast);
 
         if (options.dump_llvm) {
             std::cout << "\n=== LLVM IR ===\n";
-            module->print(llvm::outs(), nullptr);
+            compiler.printModule();
             std::cout << "\n";
         }
 
-        if (options.verbose) {
-            
+        // Generate executable if requested
+        if (options.generate_executable && !options.compile_only) {
+            std::string objectFile = "temp.o";
+            std::string executableName = options.output_file.empty() ? "a.out" : options.output_file;
+
+            if (options.verbose) {
+                std::cout << "Generating object file: " << objectFile << "\n";
+            }
+
+            compiler.generateObjectFile(objectFile);
+
+            if (options.verbose) {
+                std::cout << "Linking executable: " << executableName << "\n";
+            }
+
+            // Link object file with runtime to create executable
+            std::string linkCommand = "gcc " + objectFile + " build/runtime/smart_ptr.o -o " + executableName;
+            int result = system(linkCommand.c_str());
+
+            // Clean up temporary object file
+            std::remove(objectFile.c_str());
+
+            if (result != 0) {
+                throw std::runtime_error("Failed to link executable");
+            }
+
+            if (options.verbose) {
+                std::cout << "Successfully created executable: " << executableName << "\n";
+            }
         }
 
         return 0;

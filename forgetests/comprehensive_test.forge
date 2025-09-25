@@ -1,0 +1,59 @@
+// Comprehensive Smart Pointer System Test
+// Tests: type system, construction, destruction, basic pointers, and functions
+
+// Test 1: Basic raw pointer operations
+def test_raw_pointers() -> int {
+    x: int = 42
+    ptr: *int = &x
+    value: int = *ptr
+    return value  // Should return 42
+}
+
+// Test 2: Unique pointer lifecycle
+def test_unique_ptr() -> int {
+    up: unique int = 100
+    return 1  // Cleanup should be called automatically
+}
+
+// Test 3: Shared pointer lifecycle
+def test_shared_ptr() -> int {
+    sp: shared int = 200
+    return 2  // Cleanup with refcount should be called
+}
+
+// Test 4: Weak pointer lifecycle
+def test_weak_ptr() -> int {
+    wp: weak int = 300
+    return 3  // Weak cleanup should be called
+}
+
+// Test 5: Mixed smart pointer types in same scope
+def test_mixed_pointers() -> int {
+    up: unique int = 10
+    sp: shared int = 20
+    wp: weak int = 30
+    return 4  // All three should be cleaned up
+}
+
+// Test 6: Smart pointers with early return
+def test_early_return() -> int {
+    up: unique int = 50
+    if (1) {
+        return 5  // Cleanup should happen before early return
+    }
+    return 0
+}
+
+// Test 7: Nested pointer types
+def test_nested_pointers() -> int {
+    x: int = 77
+    ptr: *int = &x
+    ptr_to_ptr: **int = &ptr
+    value: int = **ptr_to_ptr
+    return value  // Should return 77
+}
+
+// Main test runner
+up_main: unique int = 999
+sp_main: shared int = 888
+result: int = test_raw_pointers()

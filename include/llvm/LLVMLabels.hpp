@@ -9,4 +9,9 @@ namespace LLVMLabels {
     constexpr const char* IF_THEN = "if.then";
     constexpr const char* IF_ELSE = "if.else";
     constexpr const char* IF_MERGE = "if.merge";
+
+    constexpr const char* SMART_PTR_RETAIN = "smart_ptr_retain";
+    constexpr const char* SMART_PTR_RELEASE = "smart_ptr_release";
+    constexpr const char* SMART_PTR_USE_COUNT = "smart_ptr_use_count";
+    constexpr const char* SMART_PTR_MALLOC = "smart_ptr_malloc";
 }

@@ -1,0 +1,3 @@
+// Step-by-step test to isolate issues
+x: int = 42
+ptr: *int = &x

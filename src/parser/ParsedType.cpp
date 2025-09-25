@@ -18,9 +18,11 @@ std::string ParsedType::toString() const {
             break;
     }
 
-    // Add pointer/reference prefixes
+    // Add pointer/reference prefixes based on nesting level
     if (isPointer) {
-        result += "*";
+        for (int i = 0; i < nestingLevel; i++) {
+            result += "*";
+        }
     }
     if (isReference) {
         result += "&";

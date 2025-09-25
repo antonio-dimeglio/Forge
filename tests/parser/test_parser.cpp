@@ -699,7 +699,7 @@ TEST_F(StatementParserTest, ParseSimpleVariableDeclaration) {
     auto varDecl = dynamic_cast<VariableDeclaration*>(program->statements[0].get());
     ASSERT_NE(varDecl, nullptr);
     EXPECT_EQ(varDecl->variable.getValue(), "x");
-    EXPECT_EQ(varDecl->type.getType(), TokenType::INT);
+    EXPECT_EQ(varDecl->type.primaryType.getType(), TokenType::INT);
 
     auto expr = dynamic_cast<LiteralExpression*>(varDecl->expr.get());
     ASSERT_NE(expr, nullptr);
@@ -711,27 +711,27 @@ TEST_F(StatementParserTest, ParseVariableDeclarationAllTypes) {
     auto stmtInt = parseStatement("x: int = 42");
     auto programInt = dynamic_cast<Program*>(stmtInt.get());
     auto varDeclInt = dynamic_cast<VariableDeclaration*>(programInt->statements[0].get());
-    EXPECT_EQ(varDeclInt->type.getType(), TokenType::INT);
+    EXPECT_EQ(varDeclInt->type.primaryType.getType(), TokenType::INT);
 
     auto stmtFloat = parseStatement("y: float = 3.14");
     auto programFloat = dynamic_cast<Program*>(stmtFloat.get());
     auto varDeclFloat = dynamic_cast<VariableDeclaration*>(programFloat->statements[0].get());
-    EXPECT_EQ(varDeclFloat->type.getType(), TokenType::FLOAT);
+    EXPECT_EQ(varDeclFloat->type.primaryType.getType(), TokenType::FLOAT);
 
     auto stmtDouble = parseStatement("z: double = 2.718");
     auto programDouble = dynamic_cast<Program*>(stmtDouble.get());
     auto varDeclDouble = dynamic_cast<VariableDeclaration*>(programDouble->statements[0].get());
-    EXPECT_EQ(varDeclDouble->type.getType(), TokenType::DOUBLE);
+    EXPECT_EQ(varDeclDouble->type.primaryType.getType(), TokenType::DOUBLE);
 
     auto stmtBool = parseStatement("flag: bool = true");
     auto programBool = dynamic_cast<Program*>(stmtBool.get());
     auto varDeclBool = dynamic_cast<VariableDeclaration*>(programBool->statements[0].get());
-    EXPECT_EQ(varDeclBool->type.getType(), TokenType::BOOL);
+    EXPECT_EQ(varDeclBool->type.primaryType.getType(), TokenType::BOOL);
 
     auto stmtStr = parseStatement("name: str = \"hello\"");
     auto programStr = dynamic_cast<Program*>(stmtStr.get());
     auto varDeclStr = dynamic_cast<VariableDeclaration*>(programStr->statements[0].get());
-    EXPECT_EQ(varDeclStr->type.getType(), TokenType::STR);
+    EXPECT_EQ(varDeclStr->type.primaryType.getType(), TokenType::STR);
 }
 
 TEST_F(StatementParserTest, ParseVariableDeclarationWithComplexExpression) {

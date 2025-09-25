@@ -1,0 +1,2 @@
+x: int = 5
+raw_x: *int = *x

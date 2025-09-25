@@ -28,9 +28,9 @@ This document defines the complete implementation plan for Forge's pointer syste
 ### Raw Pointers & C Interop
 ```forge
 # Raw pointer types
-raw_int: *int = malloc(sizeof(int))
+raw_int: *int = malloc(sizeof<int>())
 raw_void: *void = null
-raw_array: *Player = malloc(sizeof(Player) * 10)
+raw_array: *Player = malloc(sizeof<Player>() * 10)
 
 # C function bindings
 extern def malloc(size: int) -> *void
@@ -38,7 +38,7 @@ extern def free(ptr: *void) -> void
 extern def memcpy(dest: *void, src: *void, n: int) -> *void
 
 # Manual memory management
-data: *int = malloc(sizeof(int) * 100)
+data: *int = malloc(sizeof<int>() * 100)
 data[0] = 42                    # Pointer arithmetic
 data[99] = 100
 defer free(data)                # Manual cleanup
@@ -216,15 +216,15 @@ int_ptr: *int = void_ptr as *int
 - [X] Add optional type parsing (`optional[T]`)
 - [X] Add `some`/`none` expression parsing
 - [X] Add method call parsing for smart pointer operations
-- [ ] Add comprehensive smart pointer syntax tests
+- [X] Add comprehensive smart pointer syntax tests
 
 #### AST Updates
-- [ ] Add UniquePointerType AST node
-- [ ] Add SharedPointerType AST node
-- [ ] Add WeakPointerType AST node
-- [ ] Add OptionalType AST node
-- [ ] Add SmartPointerCreation AST node
-- [ ] Add SomeExpression and NoneExpression AST nodes
+- [X] Add UniquePointerType AST node
+- [X] Add SharedPointerType AST node
+- [X] Add WeakPointerType AST node
+- [X] Add OptionalType AST node
+- [X] Add SmartPointerCreation AST node
+- [X] Add SomeExpression and NoneExpression AST nodes
 
 ### Phase 3: LLVM Type System Integration
 **Status**: Not Started

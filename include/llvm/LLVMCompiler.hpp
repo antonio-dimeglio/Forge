@@ -21,14 +21,30 @@ class LLVMCompiler {
         llvm::IRBuilder<> builder;
         std::unordered_map<std::string, llvm::Value*> symbolTable;
         ScopeManager scopeManager;
-        
+        std::vector<std::pair<llvm::Value*, SmartPointerType>> smartPointersInScope;
+
+        // Defer management
+        struct DeferredCall {
+            llvm::Function* function;
+            std::vector<llvm::Value*> args;
+        };
+        std::vector<DeferredCall> deferredCalls;
+
+        void declareRuntimeFunctions();
+        void generateSmartPointerCleanup();
+        void addDeferredCall(llvm::Function* func, std::vector<llvm::Value*> args);
+        void emitDeferredCalls();
     public:
         LLVMCompiler();
-        std::unique_ptr<llvm::Module> compile(const Statement& ast);
+        void compile(const Statement& ast);
+        llvm::Module* getModule() const;
+        void printModule() const;
+        void generateObjectFile(const std::string& filename);
 
         void visit(const Program& node);
         void visit(const Statement& node);
         void visit(const ExpressionStatement& node);
+        void createSmartPointerVariable(const VariableDeclaration& node);
         void visit(const VariableDeclaration& node);
         void visit(const Assignment& node);
         void visit(const BlockStatement& node);
@@ -36,6 +52,8 @@ class LLVMCompiler {
         void visit(const WhileStatement& node);
         void visit(const FunctionDefinition& node);
         void visit(const ReturnStatement& node);
+        void visit(const ExternStatement& node);
+        void visit(const DeferStatement& node);
 
         llvm::Value* visit(const Expression& node); 
         llvm::Value* visit(const LiteralExpression& node);

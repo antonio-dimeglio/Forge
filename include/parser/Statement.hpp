@@ -1,9 +1,10 @@
-#pragma once 
+#pragma once
 
 #include <memory>
 #include <string>
 #include <vector>
 #include "Expression.hpp"
+#include "ParsedType.hpp"
 
 class BytecodeCompiler;
 
@@ -38,11 +39,11 @@ class ExpressionStatement : public Statement {
 class VariableDeclaration: public Statement {
     public:
         Token variable;
-        Token type;
-        std::unique_ptr<Expression> expr; 
+        ParsedType type;
+        std::unique_ptr<Expression> expr;
         VariableDeclaration (
             Token variable,
-            Token type,
+            ParsedType type,
             std::unique_ptr<Expression> expr
         ) : variable(variable), type(type), expr(std::move(expr)) {}
         std::string toString(int indent = 0) const override;

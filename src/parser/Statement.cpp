@@ -6,7 +6,7 @@ std::string VariableDeclaration::toString(int indent) const {
     std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
     ss << indentStr << "VariableDeclaration: " << variable.getValue()
-       << ":" << type.getValue() << " = \n"
+       << ":" << type.toString() << " = \n"
        << expr->toString(indent + 1);
     return ss.str();
 }

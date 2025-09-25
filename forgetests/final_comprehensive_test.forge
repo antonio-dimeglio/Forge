@@ -1,0 +1,14 @@
+// Final comprehensive test - all features working together
+
+// Test 1: Raw pointer operations
+x: int = 42
+ptr: *int = &x
+value: int = *ptr
+
+// Test 2: Smart pointer lifecycle
+up: unique int = 100
+sp: shared int = 200
+wp: weak int = 300
+
+// Test 3: Mixed operations
+result: int = 999

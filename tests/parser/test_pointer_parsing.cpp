@@ -136,7 +136,7 @@ TEST_F(PointerParsingTest, TypeInferenceBasic) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "number");
-    EXPECT_EQ(varDecl->type.getValue(), "auto");  // Placeholder type
+    EXPECT_EQ(varDecl->type.primaryType.getValue(), "auto");  // Placeholder type
 
     auto literalExpr = dynamic_cast<LiteralExpression*>(varDecl->expr.get());
     ASSERT_NE(literalExpr, nullptr);
@@ -151,7 +151,7 @@ TEST_F(PointerParsingTest, TypeInferenceString) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "name");
-    EXPECT_EQ(varDecl->type.getValue(), "auto");
+    EXPECT_EQ(varDecl->type.primaryType.getValue(), "auto");
 
     auto literalExpr = dynamic_cast<LiteralExpression*>(varDecl->expr.get());
     ASSERT_NE(literalExpr, nullptr);
@@ -166,7 +166,7 @@ TEST_F(PointerParsingTest, TypeInferenceWithMove) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "player2");
-    EXPECT_EQ(varDecl->type.getValue(), "auto");
+    EXPECT_EQ(varDecl->type.primaryType.getValue(), "auto");
 
     auto moveExpr = dynamic_cast<MoveExpression*>(varDecl->expr.get());
     ASSERT_NE(moveExpr, nullptr);
@@ -180,7 +180,7 @@ TEST_F(PointerParsingTest, TypeInferenceComplexExpression) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "result");
-    EXPECT_EQ(varDecl->type.getValue(), "auto");
+    EXPECT_EQ(varDecl->type.primaryType.getValue(), "auto");
 
     // Expression should be a binary addition
     auto binaryExpr = dynamic_cast<BinaryExpression*>(varDecl->expr.get());
@@ -243,7 +243,7 @@ TEST_F(PointerParsingTest, ExternSimpleFunction) {
     EXPECT_EQ(externStmt->parameters.size(), 1);
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "size");
     EXPECT_EQ(externStmt->parameters[0].type.getValue(), "int");
-    EXPECT_EQ(externStmt->returnType.getValue(), "*void");  // Note: pointer info stored in ParsedType
+    EXPECT_EQ(externStmt->returnType.getValue(), "void");
 }
 
 TEST_F(PointerParsingTest, ExternMultipleParameters) {
@@ -257,10 +257,10 @@ TEST_F(PointerParsingTest, ExternMultipleParameters) {
     EXPECT_EQ(externStmt->parameters.size(), 3);
 
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "dest");
-    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "*void");
+    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "void");
 
     EXPECT_EQ(externStmt->parameters[1].name.getValue(), "src");
-    EXPECT_EQ(externStmt->parameters[1].type.getValue(), "*void");
+    EXPECT_EQ(externStmt->parameters[1].type.getValue(), "void");
 
     EXPECT_EQ(externStmt->parameters[2].name.getValue(), "n");
     EXPECT_EQ(externStmt->parameters[2].type.getValue(), "int");
@@ -284,7 +284,8 @@ TEST_F(PointerParsingTest, RawPointerType) {
     auto type = parseType("*int");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "*int");
+    EXPECT_EQ(type->primaryType.getValue(), "int");  // Should be base type without *
+    EXPECT_EQ(type->nestingLevel, 1);  // One level of pointer nesting
     EXPECT_TRUE(type->isPointer);
     EXPECT_FALSE(type->isReference);
     EXPECT_FALSE(type->isMutReference);
@@ -294,7 +295,7 @@ TEST_F(PointerParsingTest, ImmutableReferenceType) {
     auto type = parseType("&str");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "&str");
+    EXPECT_EQ(type->primaryType.getValue(), "str");  // Should be base type without &
     EXPECT_FALSE(type->isPointer);
     EXPECT_TRUE(type->isReference);
     EXPECT_FALSE(type->isMutReference);
@@ -304,7 +305,7 @@ TEST_F(PointerParsingTest, MutableReferenceType) {
     auto type = parseType("&mut Player");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "&mut Player");
+    EXPECT_EQ(type->primaryType.getValue(), "Player");  // Should be base type without &mut
     EXPECT_FALSE(type->isPointer);
     EXPECT_FALSE(type->isReference);
     EXPECT_TRUE(type->isMutReference);
@@ -314,7 +315,8 @@ TEST_F(PointerParsingTest, PointerToPointer) {
     auto type = parseType("**int");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "**int");  // Full pointer chain stored
+    EXPECT_EQ(type->primaryType.getValue(), "int");  // Base type without pointers
+    EXPECT_EQ(type->nestingLevel, 2);  // Two levels of pointer nesting
     EXPECT_TRUE(type->isPointer);
 }
 
@@ -323,7 +325,8 @@ TEST_F(PointerParsingTest, TriplePointer) {
     auto type = parseType("***int");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "***int");
+    EXPECT_EQ(type->primaryType.getValue(), "int");  // Base type without pointers
+    EXPECT_EQ(type->nestingLevel, 3);  // Three levels of pointer nesting
     EXPECT_TRUE(type->isPointer);
 }
 
@@ -332,7 +335,7 @@ TEST_F(PointerParsingTest, MixedPointerReference) {
     auto type = parseType("*&int");
 
     ASSERT_TRUE(type.has_value());
-    EXPECT_EQ(type->primaryType.getValue(), "*&int");
+    EXPECT_EQ(type->primaryType.getValue(), "int");
     EXPECT_TRUE(type->isPointer);
 }
 
@@ -344,7 +347,7 @@ TEST_F(PointerParsingTest, PointerInVariableDeclaration) {
     ASSERT_NE(varDecl, nullptr);
 
     EXPECT_EQ(varDecl->variable.getValue(), "ptr");
-    EXPECT_EQ(varDecl->type.getValue(), "*int");  // Base type stored in token
+    EXPECT_EQ(varDecl->type.primaryType.getValue(), "int");  // Base type without *
 
     // Expression should be address-of
     auto addressOf = dynamic_cast<UnaryExpression*>(varDecl->expr.get());
@@ -361,7 +364,7 @@ TEST_F(PointerParsingTest, ReferenceInFunctionParameter) {
 
     EXPECT_EQ(funcDef->parameters.size(), 1);
     EXPECT_EQ(funcDef->parameters[0].name.getValue(), "data");
-    EXPECT_EQ(funcDef->parameters[0].type.getValue(), "&mut Player");
+    EXPECT_EQ(funcDef->parameters[0].type.getValue(), "Player");
 }
 
 // ============= ERROR HANDLING TESTS =============

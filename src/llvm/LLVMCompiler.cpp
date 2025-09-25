@@ -5,6 +5,16 @@
 #include "../../include/llvm/LLVMLabels.hpp"
 #include <iostream>
 #include <string>
+#include <optional>
+
+// LLVM target generation includes
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/MC/TargetRegistry.h>
 /*
     TODO: 
         Implements classes
@@ -16,9 +26,9 @@ LLVMCompiler::LLVMCompiler() : context(), builder(context) {
     _module = std::make_unique<llvm::Module>(LLVMLabels::MAIN_LABEL, context);
 }
 
-std::unique_ptr<llvm::Module> LLVMCompiler::compile(const Statement& ast) {
+void LLVMCompiler::compile(const Statement& ast) {
+    declareRuntimeFunctions();
     ast.accept(*this);
-    return std::move(_module);
 }
 
 void LLVMCompiler::visit(const Program& node) {
@@ -55,6 +65,8 @@ void LLVMCompiler::visit(const Program& node) {
     }
 
     // Return appropriate value
+    // emitDeferredCalls();  // Execute deferred calls before main returns - COMMENTED OUT FOR DEBUGGING
+    generateSmartPointerCleanup();  // Clean up smart pointers before main returns
     if (lastValue) {
         builder.CreateRet(lastValue);
     } else {
@@ -87,6 +99,10 @@ void LLVMCompiler::visit(const Statement& node) {
         visit(*fndfStmt);
     } else if (const auto* rtrnStmt = dynamic_cast<const ReturnStatement*>(&node)) {
         visit(*rtrnStmt);
+    } else if (const auto* extrnStmt = dynamic_cast<const ExternStatement*>(&node)) {
+        visit(*extrnStmt);
+    } else if (const auto* deferStmt = dynamic_cast<const DeferStatement*>(&node)) {
+        visit(*deferStmt);
     }
     else { 
         ErrorReporter::compilationError("Unimplemented statement type: " + std::string(typeid(node).name()));
@@ -129,14 +145,54 @@ void LLVMCompiler::visit(const VariableDeclaration& node) {
     if (scopeManager.isDeclaredInCurrentScope(varName)) {
         ErrorReporter::variableRedeclaration(varName);
     }
-    
-    auto varType = LLVMTypeSystem::getLLVMType(context, node.type.getType());
-    auto varValue = visit(*node.expr);
 
+    if (node.type.smartPointerType != SmartPointerType::None) {
+        createSmartPointerVariable(node);
+        return;
+    }
+    
+    auto varType = LLVMTypeSystem::getLLVMType(context, node.type);
+    auto varValue = visit(*node.expr);
     llvm::AllocaInst* ptr = builder.CreateAlloca(varType, nullptr, varName);
     builder.CreateStore(varValue, ptr);
-
     scopeManager.declare(varName, ptr);
+}
+
+void LLVMCompiler::createSmartPointerVariable(const VariableDeclaration& node) {
+    auto varName = node.variable.getValue();
+    auto smartPtrType = LLVMTypeSystem::getLLVMType(context, node.type);
+
+    // 1. Allocate the smart pointer struct on the stack
+    llvm::AllocaInst* smartPtr = builder.CreateAlloca(smartPtrType, nullptr, varName);
+
+    // 2. Get the value to store (e.g., 42)
+    auto value = visit(*node.expr);
+
+    // 3. Allocate memory on heap for the actual value
+    llvm::Function* mallocFunc = _module->getFunction("smart_ptr_malloc");
+    llvm::Value* heapPtr = builder.CreateCall(mallocFunc, {builder.getInt32(4)}); // sizeof(int)
+
+    // 4. Store the value in heap memory
+    builder.CreateStore(value, heapPtr);
+
+    // 5. Store heap pointer in smart pointer struct
+    if (node.type.smartPointerType == SmartPointerType::Unique) {
+        // For unique_ptr: data is field 0
+        llvm::Value* dataFieldPtr = builder.CreateGEP(smartPtrType, smartPtr, {builder.getInt32(0), builder.getInt32(0)});
+        builder.CreateStore(heapPtr, dataFieldPtr);
+
+    } else if (node.type.smartPointerType == SmartPointerType::Shared) {
+        // For shared_ptr: refcount is field 0, data is field 1
+        llvm::Value* refcountPtr = builder.CreateGEP(smartPtrType, smartPtr, {builder.getInt32(0), builder.getInt32(0)});
+        builder.CreateStore(builder.getInt32(1), refcountPtr);
+
+        llvm::Value* dataFieldPtr = builder.CreateGEP(smartPtrType, smartPtr, {builder.getInt32(0), builder.getInt32(1)});
+        builder.CreateStore(heapPtr, dataFieldPtr);
+    }
+
+    // 6. Register the variable in scope
+    scopeManager.declare(varName, smartPtr);
+    smartPointersInScope.push_back({smartPtr, node.type.smartPointerType});
 }
 
 void LLVMCompiler::visit(const Assignment& node) {
@@ -171,6 +227,7 @@ void LLVMCompiler::visit(const BlockStatement& node) {
         visit(*stmt);
     }
 
+    generateSmartPointerCleanup();
     scopeManager.exitScope();
 }
 
@@ -315,21 +372,90 @@ void LLVMCompiler::visit(const FunctionDefinition& node) {
 
 void LLVMCompiler::visit(const ReturnStatement& node) {
     llvm::Function* currentFunction = nullptr;
+    
     if (builder.GetInsertBlock())
         currentFunction = builder.GetInsertBlock()->getParent();
 
     if (node.returnValue) {
         llvm::Value* returnValue = visit(*node.returnValue);
+        // emitDeferredCalls();  // Execute deferred calls before return - COMMENTED OUT FOR DEBUGGING
+        generateSmartPointerCleanup();
         builder.CreateRet(returnValue);
     } else {
         // No explicit return value, produce a return matching the function's type
         if (!currentFunction) {
             // should not happen, but guard
+            // emitDeferredCalls();  // Execute deferred calls before return - COMMENTED OUT FOR DEBUGGING
+            generateSmartPointerCleanup();
             builder.CreateRetVoid();
             return;
         }
+        // emitDeferredCalls();  // Execute deferred calls before return - COMMENTED OUT FOR DEBUGGING
+        generateSmartPointerCleanup();
         LLVMTypeSystem::setFunctionReturnType(builder, currentFunction);
     }
+
+}
+
+void LLVMCompiler::visit(const ExternStatement& node) {
+    // External function declaration: extern def malloc(size: int) -> *void
+
+    // Convert parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : node.parameters) {
+        llvm::Type* paramType = LLVMTypeSystem::getLLVMType(context, param.type.getType());
+        if (!paramType) {
+            ErrorReporter::compilationError("Unknown parameter type in extern function: " + param.name.getValue());
+            return;
+        }
+        paramTypes.push_back(paramType);
+    }
+
+    // Convert return type
+    llvm::Type* returnType = LLVMTypeSystem::getLLVMType(context, node.returnType.getType());
+    if (!returnType) {
+        ErrorReporter::compilationError("Unknown return type in extern function: " + node.functionName.getValue());
+        return;
+    }
+
+    // Create function type
+    llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+
+    // Declare external function
+    llvm::Function* externFunc = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,  // External linkage for C functions
+        node.functionName.getValue(),
+        _module.get()
+    );
+
+    // Set parameter names (helpful for debugging)
+    auto argIt = externFunc->arg_begin();
+    for (const auto& param : node.parameters) {
+        argIt->setName(param.name.getValue());
+        ++argIt;
+    }
+}
+
+void LLVMCompiler::visit(const DeferStatement& node) {
+    // Store the defer statement for later execution at scope end
+    // For now, we assume the expression is a function call
+
+    // This is a simplified implementation - in a full implementation,
+    // we'd need to evaluate the expression and extract the function call
+    ErrorReporter::compilationError("Defer statements not fully implemented yet - placeholder added");
+}
+
+void LLVMCompiler::addDeferredCall(llvm::Function* func, std::vector<llvm::Value*> args) {
+    deferredCalls.push_back({func, std::move(args)});
+}
+
+void LLVMCompiler::emitDeferredCalls() {
+    // Execute deferred calls in reverse order (LIFO - Last In, First Out)
+    for (auto it = deferredCalls.rbegin(); it != deferredCalls.rend(); ++it) {
+        builder.CreateCall(it->function, it->args);
+    }
+    deferredCalls.clear();
 }
 
 llvm::Value* LLVMCompiler::visit(const BinaryExpression& node) {
@@ -385,8 +511,25 @@ llvm::Value* LLVMCompiler::visit(const LiteralExpression& node) {
 }
 
 llvm::Value* LLVMCompiler::visit(const UnaryExpression& node) {
-    llvm::Value* operand = visit(*node.operand);
     TokenType op = node.operator_.getType();
+
+    // Special handling for address-of operator - need variable address, not value
+    if (op == TokenType::BITWISE_AND) {
+        if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
+            auto ptr = scopeManager.lookup(identExpr->name);
+            if (!ptr) {
+                ErrorReporter::undefinedVariable(identExpr->name);
+                return nullptr;
+            }
+            return ptr;  // Return the AllocaInst (address), not the loaded value
+        } else {
+            ErrorReporter::compilationError("Address-of operator can only be applied to variables");
+            return nullptr;
+        }
+    }
+
+    // For all other operators, get the value normally
+    llvm::Value* operand = visit(*node.operand);
 
     switch (op) {
         case TokenType::MINUS:
@@ -399,6 +542,22 @@ llvm::Value* LLVMCompiler::visit(const UnaryExpression& node) {
         case TokenType::NOT:
             if (operand->getType()->isIntegerTy(1))
                 return builder.CreateNot(operand);
+            break;
+        case TokenType::MULT:
+            // Dereference operator: *ptr
+            // operand should be a pointer type, load the value it points to
+            if (operand->getType()->isPointerTy()) {
+                // For opaque pointers, we need to infer the element type from the AST
+                llvm::Type* elementType = LLVMTypeSystem::inferPointerElementType(context, node);
+                if (!elementType) {
+                    // Default to int for now, but this should be improved
+                    elementType = llvm::Type::getInt32Ty(context);
+                }
+                return builder.CreateLoad(elementType, operand, "deref");
+            } else {
+                ErrorReporter::compilationError("Cannot dereference non-pointer type");
+                return nullptr;
+            }
             break;
     }
     return nullptr;
@@ -449,4 +608,127 @@ llvm::Value* LLVMCompiler::visit(const FunctionCall& node) {
 
     llvm::Value* result = builder.CreateCall(calledFunction, args);
     return result;
+}
+
+void LLVMCompiler::declareRuntimeFunctions() {
+    llvm::Type* voidType = llvm::Type::getVoidTy(context);
+    llvm::Type* i32Type = llvm::Type::getInt32Ty(context);
+    llvm::Type* ptrType = llvm::Type::getInt8PtrTy(context);
+
+    llvm::FunctionType* retainType = llvm::FunctionType::get(
+        voidType,           // return type
+        {ptrType},         // parameters: void* smart_ptr
+        false              // not variadic
+    );
+
+    llvm::FunctionType* releaseType = llvm::FunctionType::get(
+        voidType,          
+        {ptrType},         
+        false              
+    );
+
+    llvm::FunctionType* useCount = llvm::FunctionType::get(
+        i32Type,          
+        {ptrType},         
+        false              
+    );
+
+    llvm::FunctionType* malloc_ = llvm::FunctionType::get(
+        ptrType,
+        {i32Type},
+        false
+    );
+
+    // Type-specific function declarations
+    // Unique pointer functions
+    llvm::Function::Create(releaseType, llvm::Function::ExternalLinkage,
+                            "unique_ptr_release", _module.get());
+
+    // Shared pointer functions
+    llvm::Function::Create(retainType, llvm::Function::ExternalLinkage,
+                            "shared_ptr_retain", _module.get());
+    llvm::Function::Create(releaseType, llvm::Function::ExternalLinkage,
+                            "shared_ptr_release", _module.get());
+    llvm::Function::Create(useCount, llvm::Function::ExternalLinkage,
+                            "shared_ptr_use_count", _module.get());
+
+    // Weak pointer functions
+    llvm::Function::Create(releaseType, llvm::Function::ExternalLinkage,
+                            "weak_ptr_release", _module.get());
+
+    // Common malloc function
+    llvm::Function::Create(malloc_, llvm::Function::ExternalLinkage,
+                            LLVMLabels::SMART_PTR_MALLOC, _module.get());
+}
+
+void LLVMCompiler::generateSmartPointerCleanup() {
+    for (auto& [smartPtr, type] : smartPointersInScope) {
+        if (type == SmartPointerType::Unique) {
+            // Call unique_ptr_release for unique_ptr
+            llvm::Function* releaseFunc = _module->getFunction("unique_ptr_release");
+            builder.CreateCall(releaseFunc, {smartPtr});
+        } else if (type == SmartPointerType::Shared) {
+            // Call shared_ptr_release for shared_ptr (handles refcount)
+            llvm::Function* releaseFunc = _module->getFunction("shared_ptr_release");
+            builder.CreateCall(releaseFunc, {smartPtr});
+        } else if (type == SmartPointerType::Weak) {
+            // Call weak_ptr_release for weak_ptr
+            llvm::Function* releaseFunc = _module->getFunction("weak_ptr_release");
+            builder.CreateCall(releaseFunc, {smartPtr});
+        }
+    }
+    smartPointersInScope.clear();
+}
+
+llvm::Module* LLVMCompiler::getModule() const {
+    return _module.get();
+}
+
+void LLVMCompiler::printModule() const {
+    _module->print(llvm::outs(), nullptr);
+}
+
+void LLVMCompiler::generateObjectFile(const std::string& filename) {
+    // Initialize all target info
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+
+    // Get target triple for current machine
+    auto TargetTriple = llvm::sys::getDefaultTargetTriple();
+    _module->setTargetTriple(TargetTriple);
+
+    std::string Error;
+    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    if (!Target) {
+        throw std::runtime_error("Failed to lookup target: " + Error);
+    }
+
+    auto CPU = "generic";
+    auto Features = "";
+    llvm::TargetOptions opt;
+    auto RM = llvm::Optional<llvm::Reloc::Model>();
+    auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+
+    _module->setDataLayout(TargetMachine->createDataLayout());
+
+    // Open output file
+    std::error_code EC;
+    llvm::raw_fd_ostream dest(filename, EC, llvm::sys::fs::OF_None);
+    if (EC) {
+        throw std::runtime_error("Could not open file: " + EC.message());
+    }
+
+    // Create pass to emit object file
+    llvm::legacy::PassManager pass;
+    auto FileType = llvm::CGFT_ObjectFile;
+    if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+        throw std::runtime_error("TargetMachine can't emit a file of this type");
+    }
+
+    // Run the pass
+    pass.run(*_module);
+    dest.flush();
 }

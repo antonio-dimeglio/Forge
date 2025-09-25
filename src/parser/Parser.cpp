@@ -60,6 +60,7 @@ bool Parser::isValidTypeToken(TokenType type) {
         case TokenType::DOUBLE:
         case TokenType::BOOL:
         case TokenType::STR:
+        case TokenType::VOID:
         case TokenType::IDENTIFIER:
         case TokenType::UNIQUE:
         case TokenType::SHARED:
@@ -101,24 +102,22 @@ std::optional<ParsedType> Parser::parseType() {
     }
 
     // Handle recursive pointer/reference operators: **, ***, &*, etc.
-    std::string pointerPrefix = "";
+    int pointerNesting = 0;
     bool isPtr = false, isRef = false, isMutref = false;
 
     // Keep consuming pointer/reference operators until we find a type
     while (current().getType() == TokenType::MULT || current().getType() == TokenType::BITWISE_AND) {
         if (current().getType() == TokenType::MULT) {
-            pointerPrefix += "*";
+            pointerNesting++;
             advance();
             isPtr = true;
         } else if (current().getType() == TokenType::BITWISE_AND) {
             advance();
             if (current().getType() == TokenType::IDENTIFIER &&
                 current().getValue() == "mut") {
-                pointerPrefix += "&mut ";
                 isMutref = true;
                 advance();
             } else {
-                pointerPrefix += "&";
                 isRef = true;
             }
         }
@@ -131,23 +130,18 @@ std::optional<ParsedType> Parser::parseType() {
 
     Token baseType = advance();
 
-    // For complex pointer types like **, create a synthetic token
+    // Keep the base type clean - don't mix pointer prefixes with the type name
     Token primaryType = baseType;
-    if (!pointerPrefix.empty()) {
-        // Create synthetic token that represents the full type (e.g., "*int" for **int)
-        std::string syntheticTypeName = pointerPrefix + baseType.getValue();
-        primaryType = Token(TokenType::IDENTIFIER, syntheticTypeName, baseType.getLine(), baseType.getColumn());
-    }
 
     ParsedType result {
         .primaryType = primaryType,
         .typeParameters = {},
-        .nestingLevel = 0,
+        .nestingLevel = pointerNesting,  // Store the pointer nesting level
         .isPointer = isPtr,
         .isReference = isRef,
         .isMutReference = isMutref,
         .isOptional = isOptional,
-        .smartPointerType = smartPtrType        
+        .smartPointerType = smartPtrType
     };
     
     // Handle Array[T], Map[K,V], etc.
@@ -519,7 +513,7 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
 
     return std::make_unique<VariableDeclaration>(
         identifier,
-        parsedType.primaryType,
+        parsedType,
         std::move(expression)
     );
 }
@@ -570,8 +564,18 @@ std::unique_ptr<Statement> Parser::parseAssignmentOrExpression() {
         // Create VariableDeclaration with auto type
         Token identifierToken(TokenType::IDENTIFIER, identifierExpr->name, current().getLine(), current().getColumn());
         Token autoType(TokenType::IDENTIFIER, "auto", current().getLine(), current().getColumn());
+        ParsedType parsedAutoType {
+            .primaryType = autoType,
+            .typeParameters = {},
+            .nestingLevel = 0,
+            .isPointer = false,
+            .isReference = false,
+            .isMutReference = false,
+            .isOptional = false,
+            .smartPointerType = SmartPointerType::None
+        };
 
-        return std::make_unique<VariableDeclaration>(identifierToken, autoType, std::move(rhs));
+        return std::make_unique<VariableDeclaration>(identifierToken, parsedAutoType, std::move(rhs));
     }
     else {
         // Not an assignment, return as expression statement
@@ -593,10 +597,20 @@ std::unique_ptr<Statement> Parser::parseInferredDeclaration() {
     // For now, we'll create a special VariableDeclaration with inferred type
     // The type will be inferred from the expression during semantic analysis
     Token inferredType = Token(TokenType::IDENTIFIER, "auto", identifier.getLine(), identifier.getColumn());
+    ParsedType parsedInferredType {
+        .primaryType = inferredType,
+        .typeParameters = {},
+        .nestingLevel = 0,
+        .isPointer = false,
+        .isReference = false,
+        .isMutReference = false,
+        .isOptional = false,
+        .smartPointerType = SmartPointerType::None
+    };
 
     return std::make_unique<VariableDeclaration>(
         identifier,
-        inferredType,  // Placeholder - actual type inference happens later
+        parsedInferredType,  // Placeholder - actual type inference happens later
         std::move(expression)
     );
 }

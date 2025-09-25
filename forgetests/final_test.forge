@@ -1,0 +1,11 @@
+// Complete smart pointer test
+x: int = 42
+ptr: *int = &x
+value: int = *ptr
+
+// Smart pointers
+up: unique int = 100
+sp: shared int = 200
+wp: weak int = 300
+
+result: int = 999

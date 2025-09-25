@@ -8,7 +8,7 @@ LLVM_CONFIG = llvm-config-15
 # Filter out conflicting LLVM flags and suppress LLVM warnings
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
 CXXFLAGS += $(LLVM_CXXFLAGS) -I/usr/include/llvm-c-15 -Wno-unused-parameter -Wno-switch
-LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter)
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter target)
 SRCDIR = src
 OBJDIR = build
 TESTDIR = tests
@@ -16,6 +16,10 @@ TESTDIR = tests
 # Find all .cpp files in src and subdirectories
 SOURCES = $(shell find $(SRCDIR) -name "*.cpp")
 OBJECTS = $(SOURCES:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
+
+# Find runtime C files
+RUNTIME_SOURCES = $(shell find $(SRCDIR)/runtime -name "*.c" 2>/dev/null || true)
+RUNTIME_OBJECTS = $(RUNTIME_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 
 # Test files
 TEST_SOURCES = $(shell find $(TESTDIR) -name "*.cpp")
@@ -29,18 +33,23 @@ TEST_TARGET = test_forge
 all: $(TARGET)
 
 # Build main executable
-$(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS) -g
+$(TARGET): $(OBJECTS) $(RUNTIME_OBJECTS)
+	$(CXX) $(OBJECTS) $(RUNTIME_OBJECTS) -o $(TARGET) $(LDFLAGS) -g
 
 # Build object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Build runtime C files
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(dir $@)
+	gcc -c $< -o $@
+
 # Build test executable
 test: $(TEST_TARGET)
 
-$(TEST_TARGET): $(TEST_OBJECTS) $(filter-out $(OBJDIR)/main.o, $(OBJECTS))
+$(TEST_TARGET): $(TEST_OBJECTS) $(filter-out $(OBJDIR)/main.o, $(OBJECTS)) $(RUNTIME_OBJECTS)
 	$(CXX) $^ $(GTEST_FLAGS) $(LDFLAGS) -o $(TEST_TARGET)
 
 # Build test object files

@@ -1,0 +1,4 @@
+// Complete pointer workflow test
+x: int = 42
+ptr: *int = &x
+value: int = *ptr

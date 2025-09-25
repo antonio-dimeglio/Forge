@@ -216,7 +216,7 @@ TEST_F(PointerTokenTest, ExternFunctionDeclaration) {
     expectToken(tokens[7], TokenType::RPAREN, ")");
     expectToken(tokens[8], TokenType::ARROW, "->");
     expectToken(tokens[9], TokenType::MULT, "*");       // Raw pointer
-    expectToken(tokens[10], TokenType::IDENTIFIER, "void");
+    expectToken(tokens[10], TokenType::VOID, "void");
     expectToken(tokens[11], TokenType::END_OF_FILE);
 }
 

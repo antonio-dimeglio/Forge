@@ -14,4 +14,9 @@ class LLVMTypeSystem {
         static bool canPromoteType(llvm::Type* from, llvm::Type* to);
         static llvm::Type* getPromotedType(llvm::Type* left, llvm::Type* right);
         static void setFunctionReturnType(llvm::IRBuilder<>& builder, llvm::Function* func);
+        static llvm::StructType* getUniquePointerType(llvm::LLVMContext& context, TokenType elementType);
+        static llvm::StructType* getSharedPointerType(llvm::LLVMContext& context, TokenType elementType);
+        static llvm::StructType* getWeakPointerType(llvm::LLVMContext& context, TokenType elementType);
+        static bool isPointerCompatbile();
+        static llvm::Type* inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node);
 };

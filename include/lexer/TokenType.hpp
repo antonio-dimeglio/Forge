@@ -81,6 +81,7 @@
     X(NULL_, "NULL") \
     X(DEFER, "DEFER") \
     X(NEW, "NEW") \
+    X(VOID, "VOID") \
 
 
 enum class TokenType {
