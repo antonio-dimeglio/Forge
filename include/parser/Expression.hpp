@@ -5,8 +5,6 @@
 #include <vector>
 #include "../lexer/Token.hpp"
 
-class BytecodeCompiler;
-
 class Expression {
     public:
         virtual ~Expression() = default;
@@ -135,9 +133,20 @@ class MoveExpression : public Expression {
     public:
         Token moveToken;
         std::unique_ptr<Expression> operand;
-
+        
         MoveExpression(Token moveToken, std::unique_ptr<Expression> operand)
             : moveToken(moveToken), operand(std::move(operand)) {}
+                    
+        std::string toString(int indent = 0) const override;
+};
+
+class OptionalExpression : public Expression {
+    public:
+        Token type;
+        std::unique_ptr<Expression> value;
+        
+        OptionalExpression(Token type, std::unique_ptr<Expression> value) 
+            : type(type), value(std::move(value)) {}
 
         std::string toString(int indent = 0) const override;
 };

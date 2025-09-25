@@ -1,0 +1,7 @@
+def initialized(s:str) -> Maybe<int> {
+    if (s) {
+        return Some(s)
+    } else {
+        return None
+    }
+}

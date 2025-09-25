@@ -52,6 +52,8 @@
     X(SHARED, "SHARED") \
     X(WEAK, "WEAK") \
     X(MAYBE, "MAYBE") \
+    X(SOME, "SOME") \
+    X(NONE, "NONE") \
     \
     /* Punctuation */ \
     X(LPAREN, "LPAREN") \
@@ -60,8 +62,6 @@
     X(RBRACE, "RBRACE") \
     X(LSQUARE, "LSQUARE") \
     X(RSQUARE, "RSQUARE") \
-    X(LANGLE, "LANGLE") \
-    X(RANGLE, "RANGLE") \
     X(COMMA, "COMMA") \
     X(COLON, "COLON") \
     X(DOT, "DOT") \

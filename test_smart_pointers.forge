@@ -1,0 +1,3 @@
+player: unique Player := new Player("Alice", 100)
+config: shared GameConfig := new GameConfig()
+ref_ptr: weak Player := &player.downgrade()

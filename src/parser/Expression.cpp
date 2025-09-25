@@ -60,8 +60,6 @@ std::string FunctionCall::toString(int indent) const {
     return ss.str();
 }
 
-// ============= NEW ARRAY EXPRESSION IMPLEMENTATIONS =============
-
 std::string ArrayLiteralExpression::toString(int indent) const {
     std::stringstream ss;
     ss << makeIndent(indent) << "ArrayLiteral: [";
@@ -145,5 +143,16 @@ std::string GenericInstantiation::toString(int indent) const {
         }
     }
 
+    return ss.str();
+}
+
+std::string OptionalExpression::toString(int indent) const {
+    std::stringstream ss;
+
+    // if type is TokenType::SOME print the value, otherwise print just None
+    ss << type.getValue();
+    if (value != nullptr) {
+        ss << "(" << value->toString() << ")";
+    }
     return ss.str();
 }

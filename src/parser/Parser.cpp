@@ -1,5 +1,6 @@
 #include "../../include/parser/Parser.hpp"
 #include "../../include/parser/ParserException.hpp"
+#include "../../include/parser/ParsedType.hpp"
 #include <iostream>
 
 Token Parser::expect(TokenType expectedType, const std::string& errorMessage) {
@@ -60,6 +61,9 @@ bool Parser::isValidTypeToken(TokenType type) {
         case TokenType::BOOL:
         case TokenType::STR:
         case TokenType::IDENTIFIER:
+        case TokenType::UNIQUE:
+        case TokenType::SHARED:
+        case TokenType::WEAK:
             return true;
         default:
             return false;
@@ -67,6 +71,35 @@ bool Parser::isValidTypeToken(TokenType type) {
 }
 
 std::optional<ParsedType> Parser::parseType() {
+    // Handle smart pointer keywords first: unique, shared, weak
+    Token token = current();
+
+    SmartPointerType smartPtrType = SmartPointerType::None;
+    bool isOptional = false;
+
+    // First check if the type is an optional one, then check its content
+    if (token.getType() == TokenType::MAYBE) {
+        isOptional = true;
+        advance();  // consume MAYBE
+        expect(TokenType::LESS, "Expected <");
+        token = current();  // Update token to the inner type
+    }
+
+    switch (token.getType()) {
+        case TokenType::UNIQUE: 
+            smartPtrType = SmartPointerType::Unique;
+            advance();
+            break;
+        case TokenType::SHARED:
+            smartPtrType = SmartPointerType::Shared;
+            advance();
+            break;
+        case TokenType::WEAK:
+            smartPtrType = SmartPointerType::Weak;
+            advance();
+            break;
+    }
+
     // Handle recursive pointer/reference operators: **, ***, &*, etc.
     std::string pointerPrefix = "";
     bool isPtr = false, isRef = false, isMutref = false;
@@ -96,7 +129,6 @@ std::optional<ParsedType> Parser::parseType() {
         return std::nullopt;
     }
 
-
     Token baseType = advance();
 
     // For complex pointer types like **, create a synthetic token
@@ -113,7 +145,9 @@ std::optional<ParsedType> Parser::parseType() {
         .nestingLevel = 0,
         .isPointer = isPtr,
         .isReference = isRef,
-        .isMutReference = isMutref
+        .isMutReference = isMutref,
+        .isOptional = isOptional,
+        .smartPointerType = smartPtrType        
     };
     
     // Handle Array[T], Map[K,V], etc.
@@ -138,6 +172,8 @@ std::optional<ParsedType> Parser::parseType() {
 
         expect(TokenType::RSQUARE, "Expected ]");
     }
+
+    if (isOptional) expect(TokenType::GREATER, "Expected >");
 
     return result;
 }
@@ -431,117 +467,6 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
 
     return expr;
 }
-/*
-std::unique_ptr<Expression> Parser::parsePrimary() {
-    Token token = current();
-
-    switch (token.getType()) {
-        case TokenType::IDENTIFIER:
-            {
-                Token identifier = advance();
-
-                if (current().getType() == TokenType::LSQUARE) {
-                    // Need to distinguish between generic instantiation (Array[int](10))
-                    // and array access (arr[0]) by looking ahead for parentheses
-                    size_t savedIdx = idx;
-
-                    // Skip past the bracket content to see if there are parentheses after
-                    advance(); // consume '['
-                    int bracketDepth = 1;
-                    while (bracketDepth > 0 && !isAtEnd()) {
-                        if (current().getType() == TokenType::LSQUARE) {
-                            bracketDepth++;
-                        } else if (current().getType() == TokenType::RSQUARE) {
-                            bracketDepth--;
-                        }
-                        if (bracketDepth > 0) advance();
-                    }
-
-                    bool hasParensAfter = false;
-                    if (!isAtEnd() && current().getType() == TokenType::RSQUARE) {
-                        advance(); // consume ']'
-                        if (!isAtEnd() && current().getType() == TokenType::LPAREN) {
-                            hasParensAfter = true;
-                        }
-                    }
-
-                    // Restore position
-                    idx = savedIdx;
-
-                    if (hasParensAfter) {
-                        // This is generic instantiation: Array[int](10)
-                        return parseGenericInstantiation(identifier);
-                    } else {
-                        // This is array access, return identifier and let postfix handle it
-                        return std::make_unique<IdentifierExpression>(identifier.getValue());
-                    }
-                } else if (current().getType() == TokenType::LESS || current().getType() == TokenType::LPAREN) {
-                    // Function call with optional type arguments: func<T>(args) or func(args)
-                    std::vector<Token> typeArguments;
-
-                    // Parse optional type arguments: func<int, string>
-                    if (current().getType() == TokenType::LESS) {
-                        advance(); // consume '<'
-
-                        if (current().getType() != TokenType::GREATER) {
-                            while (true) {
-                                if (!isValidTypeToken(current().getType())) {
-                                    throw ParsingException("Expected type in function type arguments", current().getLine(), current().getColumn());
-                                }
-
-                                typeArguments.push_back(current());
-                                advance();
-
-                                if (current().getType() == TokenType::COMMA) {
-                                    advance(); // consume ','
-                                    continue;
-                                } else if (current().getType() == TokenType::GREATER) {
-                                    break;
-                                } else {
-                                    throw ParsingException("Expected ',' or '>' in function type arguments", current().getLine(), current().getColumn());
-                                }
-                            }
-                        }
-
-                        expect(TokenType::GREATER, "Expected '>' after function type arguments");
-                    }
-
-                    // Parse function arguments: func(args)
-                    expect(TokenType::LPAREN, "Expected '(' after function name");
-
-                    std::vector<std::unique_ptr<Expression>> arguments;
-
-                    if (current().getType() != TokenType::RPAREN) {
-                        while (true) {
-                            auto arg = parseExpression();
-                            arguments.push_back(std::move(arg));
-
-                            if (current().getType() == TokenType::COMMA) {
-                                advance();
-                                continue;
-                            } else if (current().getType() == TokenType::RPAREN) {
-                                break;
-                            } else {
-                                throw ParsingException("Expected ',' or ')' in function call", current().getLine(), current().getColumn());
-                            }
-                        }
-                    }
-
-                    expect(TokenType::RPAREN, "Expected ')'");
-
-                    return std::make_unique<FunctionCall>(identifier.getValue(), typeArguments, std::move(arguments));
-                } else {
-                    // Just a variable: identifier
-                    return std::make_unique<IdentifierExpression>(identifier.getValue());
-                }
-            }
-            return std::make_unique<IdentifierExpression>(token.getValue());
-
-        default:
-            throw ParsingException("Invalid expression ", current().getLine(), current().getColumn());
-    };
-}
-*/
 
 std::unique_ptr<Expression> Parser::parsePrimary() {
     switch (current().getType()) {
@@ -559,6 +484,9 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             return parseArrayLiteral();
         case TokenType::NEW:
             return parseNewExpression();
+        case TokenType::SOME:
+        case TokenType::NONE:
+            return parseOptional();
         default:
             throw ParsingException("Unexpected token in expression", current().getLine(), current().getColumn());
     }
@@ -580,7 +508,12 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     
     ParsedType parsedType = typeResult.value();
 
-    expect(TokenType::ASSIGN, "Expected =");
+    // Accept both = and := for variable declarations with explicit types
+    if (current().getType() == TokenType::ASSIGN || current().getType() == TokenType::INFER_ASSIGN) {
+        advance();
+    } else {
+        throw ParsingException("Expected '=' or ':=' after type", current().getLine(), current().getColumn());
+    }
 
     auto expression = parseExpression();
 
@@ -1227,3 +1160,12 @@ std::unique_ptr<Expression> Parser::parseNewExpression() {
     return std::make_unique<ObjectInstantiation>(className, std::move(arguments));
 }
 
+std::unique_ptr<Expression> Parser::parseOptional() {
+    Token token = current();
+    advance(); // Consume the SOME or NONE token
+    if (token.getType() == TokenType::SOME) {
+        return std::make_unique<OptionalExpression>(token, parseExpression());
+    } else {
+        return std::make_unique<OptionalExpression>(token, nullptr);
+    }
+}

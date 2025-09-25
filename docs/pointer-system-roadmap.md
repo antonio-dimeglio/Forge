@@ -211,12 +211,11 @@ int_ptr: *int = void_ptr as *int
 - [X] Add tests for smart pointer keyword tokenization
 
 #### Parser Changes
-- [ ] Add smart pointer type parsing (`unique T`, `shared T`, `weak T`)
-- [ ] Add smart pointer creation syntax (`unique T := new T()`)
-- [ ] Add optional type parsing (`optional[T]`)
-- [ ] Add `some`/`none` expression parsing
-- [ ] Add method call parsing for smart pointer operations
-- [ ] Add smart pointer conversion parsing (`to_shared()`, `downgrade()`, etc.)
+- [X] Add smart pointer type parsing (`unique T`, `shared T`, `weak T`)
+- [X] Add smart pointer creation syntax (`unique T := new T()`)
+- [X] Add optional type parsing (`optional[T]`)
+- [X] Add `some`/`none` expression parsing
+- [X] Add method call parsing for smart pointer operations
 - [ ] Add comprehensive smart pointer syntax tests
 
 #### AST Updates

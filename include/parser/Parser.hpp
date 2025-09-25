@@ -18,6 +18,7 @@ class Parser {
         bool isValidTypeToken(TokenType type);
 
         std::unique_ptr<Expression> parsePrimary();
+        std::unique_ptr<Expression> parseOptional();
         std::unique_ptr<Expression> parseLiteral();
         std::unique_ptr<Expression> parseIdentifierExpression();
         std::unique_ptr<Expression> parseParenthesizedExpression();
