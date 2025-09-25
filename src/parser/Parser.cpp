@@ -332,10 +332,7 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
             advance(); // consume [
             auto index = parseExpression();
             
-            if (current().getType() != TokenType::RSQUARE) {
-                throw ParsingException("Expected ']'", current().getLine(), current().getColumn());
-            }
-            advance(); // consume ]
+            expect(TokenType::RSQUARE, "Expected ']'");
             expr = std::make_unique<IndexAccessExpression>(std::move(expr), std::move(index));
         } else if (current().getType() == TokenType::DOT) {
             // Member access: obj.member or obj.method(args)
@@ -350,10 +347,7 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
                 // Method call: obj.method(args)
                 advance(); // consume (
                 auto arguments = parseArgumentList();
-                if (current().getType() != TokenType::RPAREN) {
-                    throw ParsingException("Expected ')' after argument list", current().getLine(), current().getColumn());
-                }
-                advance(); // consume )
+                expect(TokenType::RPAREN, "Expected ')' after argument list");
                 expr = std::make_unique<MemberAccessExpression>(std::move(expr), memberName, std::move(arguments), true);
             } else {
                 // Simple member access: obj.member
@@ -439,10 +433,7 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
                         }
                     }
 
-                    if (current().getType() != TokenType::RPAREN) {
-                        throw ParsingException("Expected )", current().getLine(), current().getColumn());
-                    }
-                    advance();
+                    expect(TokenType::RPAREN, "Expected ')'");
 
                     return std::make_unique<FunctionCall>(identifier.getValue(), std::move(arguments));
                 } else {
@@ -454,10 +445,7 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         case TokenType::LPAREN: {
                 advance();
                 auto expr = parseExpression(); 
-                if (current().getType() != TokenType::RPAREN) {
-                    throw ParsingException("Expected )", current().getLine(), current().getColumn());
-                }
-                advance();
+                expect(TokenType::RPAREN, "Expected ')'");
                 return expr;
             }
         case TokenType::LSQUARE:
@@ -474,9 +462,7 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
         throw ParsingException("Expected identifier", identifier.getLine(), identifier.getColumn());
     }
 
-    if (advance().getType() != TokenType::COLON) {
-        throw ParsingException("Expected :", current().getLine(), current().getColumn());
-    }
+    expect(TokenType::COLON, "Expected :");
 
     auto typeResult = parseType();
     if (!typeResult.has_value()) {
@@ -485,9 +471,7 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     
     ParsedType parsedType = typeResult.value();
 
-    if (advance().getType() != TokenType::ASSIGN) {
-        throw ParsingException("Expected =", current().getLine(), current().getColumn());
-    }
+    expect(TokenType::ASSIGN, "Expected =");
 
     auto expression = parseExpression();
 
@@ -535,9 +519,7 @@ std::unique_ptr<Statement> Parser::parseIndexAssignmentOrExpression() {
 std::unique_ptr<BlockStatement> Parser::parseBlockStatement() {
     Token t(TokenType::END_OF_FILE, -1, -1);
 
-    if ((t = advance()).getType() != TokenType::LBRACE) {
-        throw ParsingException("Expected {", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::LBRACE, "Expected {");
 
     std::vector<std::unique_ptr<Statement>> statements;
     while (current().getType() != TokenType::RBRACE) {
@@ -551,9 +533,7 @@ std::unique_ptr<BlockStatement> Parser::parseBlockStatement() {
         skipNewLines();
     }
 
-    if ((t = advance()).getType() != TokenType::RBRACE) {
-        throw ParsingException("Expected }", t.getLine(), t.getColumn());
-    }
+    expect(TokenType::RBRACE, "Expected }");
 
     return std::make_unique<BlockStatement>(std::move(statements));
 }
@@ -621,7 +601,7 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
 std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
     expect(TokenType::DEF, "Expected def");
 
-    Token functionName = expect(TokenType::IDENTIFIER, "Expected variable");
+    Token functionName = expect(TokenType::IDENTIFIER, "Expected function name");
 
     expect(TokenType::LPAREN, "Expected (");
 
