@@ -7,7 +7,12 @@ GTEST_FLAGS = -lgtest -lgtest_main -pthread
 LLVM_CONFIG = llvm-config-15
 # Filter out conflicting LLVM flags and suppress LLVM warnings
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
-CXXFLAGS += $(LLVM_CXXFLAGS) -I/usr/include/llvm-c-15 -Wno-unused-parameter -Wno-switch
+ifeq ($(shell uname), Darwin)
+	LLVM_CXXFLAGS += -Iinclude -I/opt/homebrew/include -I/opt/homebrew/opt/llvm@15/include
+else
+	LLVM_CXXFLAGS += -Iinclude -I/usr/include/llvm-15
+endif
+CXXFLAGS += $(LLVM_CXXFLAGS) -Wno-unused-parameter -Wno-switch
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs core executionengine mcjit interpreter analysis native bitwriter target)
 SRCDIR = src
 OBJDIR = build
