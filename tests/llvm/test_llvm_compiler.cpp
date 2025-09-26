@@ -306,7 +306,7 @@ TEST_F(LLVMCompilerTest, WhileLoop) {
 TEST_F(LLVMCompilerTest, FunctionDefinition) {
     std::string input = R"(
         def add(a: int, b: int) -> int {
-            a + b
+            return a + b
         }
     )";
     std::string ir = compileToIR(input);
@@ -323,7 +323,7 @@ TEST_F(LLVMCompilerTest, FunctionDefinition) {
 TEST_F(LLVMCompilerTest, FunctionWithPointerParams) {
     std::string input = R"(
         def process(ptr: *int) -> int {
-            *ptr
+            return *ptr
         }
     )";
     std::string ir = compileToIR(input);

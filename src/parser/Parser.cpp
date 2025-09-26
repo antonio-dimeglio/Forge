@@ -784,6 +784,18 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
 
     auto body = parseBlockStatement();
 
+    // Validate that functions with non-void return types have return statements
+    if (returnTypeResult->primaryType.getType() != TokenType::VOID) {
+        if (!hasReturnStatement(body.get())) {
+            throw ParsingException(
+                "Function '" + functionName.getValue() + "' with return type '" +
+                returnTypeResult->primaryType.getValue() + "' must contain a return statement",
+                functionName.getLine(),
+                functionName.getColumn()
+            );
+        }
+    }
+
     return std::make_unique<FunctionDefinition>(
             functionName,
             returnTypeResult->primaryType,
@@ -791,6 +803,34 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
             params,
             std::move(body)
         );
+}
+
+bool Parser::hasReturnStatement(const BlockStatement* block) {
+    for (const auto& stmt : block->statements) {
+        // Check if this statement is a return statement
+        if (dynamic_cast<const ReturnStatement*>(stmt.get()) != nullptr) {
+            return true;
+        }
+
+        // Recursively check nested block statements (if/while/etc.)
+        if (const auto* ifStmt = dynamic_cast<const IfStatement*>(stmt.get())) {
+            if (hasReturnStatement(ifStmt->thenBlock.get())) {
+                return true;
+            }
+            if (ifStmt->elseBlock && hasReturnStatement(ifStmt->elseBlock.get())) {
+                return true;
+            }
+        } else if (const auto* whileStmt = dynamic_cast<const WhileStatement*>(stmt.get())) {
+            if (hasReturnStatement(whileStmt->body.get())) {
+                return true;
+            }
+        } else if (const auto* blockStmt = dynamic_cast<const BlockStatement*>(stmt.get())) {
+            if (hasReturnStatement(blockStmt)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 std::unique_ptr<Statement> Parser::parseProgram() {

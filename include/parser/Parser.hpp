@@ -57,6 +57,7 @@ class Parser {
         std::unique_ptr<Statement> parseDeferStatement();
         std::unique_ptr<Statement> parseExternStatement();
         std::unique_ptr<BlockStatement> parseBlockStatement();
+        bool hasReturnStatement(const BlockStatement* block);
 
         void skipNewLines();
     public:
