@@ -228,3 +228,23 @@ llvm::Type* LLVMTypeSystem::inferPointerElementType(llvm::LLVMContext& context, 
     // Default fallback
     return llvm::Type::getInt32Ty(context);
 }
+
+bool LLVMTypeSystem::isNullLiteral(llvm::Value* value) {
+    if (auto constType = llvm::dyn_cast<llvm::Constant>(value)) {
+        return constType->isNullValue();
+    }
+    return false;
+}
+
+bool LLVMTypeSystem::areTypesCompatible(llvm::Type* declared, llvm::Value* actualValue) {
+    auto actual = actualValue->getType();
+    if (declared == actual) return true; 
+    if (declared->isPointerTy() && isNullLiteral(actualValue)) return true;
+    if (declared->isPointerTy() && actual->isPointerTy()) {
+        return declared->getPointerElementType() == actual->getPointerElementType();
+    }
+
+    if (canPromoteType(actual, declared)) return true;
+
+    return false;
+}

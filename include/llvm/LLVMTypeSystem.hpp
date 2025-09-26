@@ -21,4 +21,6 @@ class LLVMTypeSystem {
         static llvm::StructType* getWeakPointerType(llvm::LLVMContext& context, TokenType elementType);
         static bool isPointerCompatbile();
         static llvm::Type* inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node, ScopeManager& scopeManager);
+        static bool areTypesCompatible(llvm::Type* declared, llvm::Value* actualValue);
+        static bool isNullLiteral(llvm::Value* value);
 };

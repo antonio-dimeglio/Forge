@@ -111,6 +111,13 @@ void StatementCodeGenerator::generateVariableDeclaration(const VariableDeclarati
     
     auto varType = LLVMTypeSystem::getLLVMType(context, node.type);
     auto varValue = expressionCodeGen.generate(*node.expr);
+    auto actualType = varValue->getType();
+
+    if (!LLVMTypeSystem::areTypesCompatible(varType, varValue)) {
+        ErrorReporter::typeMismatch(varType->isVoidTy() ? "void" : (varType->isIntegerTy() ? "int" : (varType->isFloatingPointTy() ? "float" : "other")),
+                actualType->isVoidTy() ? "void" : (actualType->isIntegerTy() ? "int" : (actualType->isFloatingPointTy() ? "float" : "other")));
+        return;
+    }
     llvm::AllocaInst* ptr = builder.CreateAlloca(varType, nullptr, varName);
     builder.CreateStore(varValue, ptr);
     scopeManager.declare(varName, ptr, node.type);
@@ -153,6 +160,7 @@ void StatementCodeGenerator::generateAssignment(const Assignment& node) {
 
 void StatementCodeGenerator::generateBlockStatement(const BlockStatement& node) {
     scopeManager.enterScope();
+    enterDeferScope();
     memoryManager.enterScope();
 
     for (const auto& stmt : node.statements) {
@@ -160,6 +168,7 @@ void StatementCodeGenerator::generateBlockStatement(const BlockStatement& node) 
     }
 
     memoryManager.exitScope();
+    exitDeferScope();
     scopeManager.exitScope();
 }
 
@@ -271,6 +280,8 @@ void StatementCodeGenerator::generateFunctionDefinition(const FunctionDefinition
     llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(context, LLVMLabels::FUNC_ENTRY, func);
     builder.SetInsertPoint(entryBlock);
 
+    // Function parameters need to be in the same scope as the function body
+    // Let BlockStatement handle all scope management, but declare parameters first
     scopeManager.enterScope();
 
     auto paramIt = func->arg_begin();
@@ -280,13 +291,14 @@ void StatementCodeGenerator::generateFunctionDefinition(const FunctionDefinition
 
         llvm::AllocaInst* ptr = builder.CreateAlloca(
             LLVMTypeSystem::getLLVMType(context, param.type),
-            nullptr, 
+            nullptr,
             param.name.getValue());
 
         builder.CreateStore(arg, ptr);
         scopeManager.declare(param.name.getValue(), ptr);
     }
-    
+
+    // Generate the function body - BlockStatement handles its own scope AND defer
     generate(*node.body);
 
     // If the function doesnt have a return statement one is added
@@ -367,10 +379,34 @@ void StatementCodeGenerator::generateExternStatement(const ExternStatement& node
 }
 
 void StatementCodeGenerator::generateDeferStatement(const DeferStatement& node) {
-    // Store the defer statement for later execution at scope end
-    // For now, we assume the expression is a function call
-
-    // This is a simplified implementation - in a full implementation,
-    // we'd need to evaluate the expression and extract the function call
-    ErrorReporter::compilationError("Defer statements not fully implemented yet - placeholder added");
+    if (!deferStack.empty()) {
+        deferStack.back().push_back(node.expression.get());
+    } else {
+        ErrorReporter::compilationError("Defer statement used outside of any scope");
+    }
 }
+
+void StatementCodeGenerator::enterDeferScope() {
+    deferStack.emplace_back();
+}
+
+void StatementCodeGenerator::exitDeferScope() {
+    if (deferStack.empty()) {
+        ErrorReporter::compilationError("Trying to exit defer scope but stack is empty!");
+        return;
+    }
+
+    emitDeferredCalls();
+    deferStack.pop_back();
+}
+
+void StatementCodeGenerator::emitDeferredCalls() {
+    if (deferStack.empty()) return; 
+    
+    auto& currScope = deferStack.back();
+
+    for (auto it = currScope.rbegin(); it != currScope.rend(); ++it) {
+        expressionCodeGen.generate(**it);
+    }
+}
+

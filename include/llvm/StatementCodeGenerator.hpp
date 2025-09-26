@@ -22,6 +22,9 @@ private:
     ExpressionCodeGenerator& expressionCodeGen;
     MemoryManager& memoryManager;
 
+    // Defer statement storage (stack of defer calls per scope)
+    std::vector<std::vector<const Expression*>> deferStack;
+
 public:
     StatementCodeGenerator(llvm::LLVMContext& context,
                           llvm::IRBuilder<>& builder,
@@ -46,4 +49,9 @@ public:
     void generateReturnStatement(const ReturnStatement& node);
     void generateExternStatement(const ExternStatement& node);
     void generateDeferStatement(const DeferStatement& node);
+
+    // Defer management
+    void enterDeferScope();
+    void exitDeferScope();
+    void emitDeferredCalls();
 };

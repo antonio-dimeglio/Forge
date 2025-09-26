@@ -1,0 +1,30 @@
+extern def malloc(size: int) -> *void
+extern def free(ptr: *void) -> void
+
+def test_defer_basic() -> void {
+    // Allocate some memory
+    data: *void = malloc(100)
+
+    // This should be executed when function exits
+    defer free(data)
+
+    // Do some work
+    x: int = 42
+}
+
+def test_defer_nested() -> void {
+    data1: *void = malloc(50)
+    defer free(data1)
+
+    if (true) {
+        data2: *void = malloc(25)
+        defer free(data2)  // Should execute first (LIFO)
+
+        y: int = 100
+    }  // data2 should be freed here
+
+    z: int = 200
+}  // data1 should be freed here
+
+test_defer_basic()
+test_defer_nested()

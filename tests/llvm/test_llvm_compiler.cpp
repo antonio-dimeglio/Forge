@@ -416,6 +416,43 @@ TEST_F(LLVMCompilerTest, ComprehensivePointerOperations) {
     ));
 }
 
+TEST_F(LLVMCompilerTest, CInteropMallocFree) {
+    std::string input = R"(
+        extern def malloc(size: int) -> *void
+        extern def free(ptr: *void) -> void
+
+        def test_malloc_workflow() -> void {
+            data: *void = malloc(4)
+            int_ptr: *int = data
+            *int_ptr = 42
+            value: int = *int_ptr
+            free(data)
+        }
+
+        test_malloc_workflow()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        // External function declarations
+        HasSubstr("declare ptr @malloc(i32)"),
+        HasSubstr("declare void @free(ptr)"),
+        // Function definition
+        HasSubstr("define void @test_malloc_workflow()"),
+        // Malloc call with correct size
+        HasSubstr("call ptr @malloc(i32 4)"),
+        // Pointer assignment and dereferencing
+        HasSubstr("store ptr %"),
+        HasSubstr("store i32 42, ptr %"),
+        HasSubstr("load i32, ptr %"),
+        // Free call
+        HasSubstr("call void @free(ptr %"),
+        // Function call
+        HasSubstr("call void @test_malloc_workflow()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
 // ============================================================================
 // BLOCK STATEMENT TESTS
 // ============================================================================
@@ -533,6 +570,101 @@ TEST_F(LLVMCompilerTest, FunctionWithExternCalls) {
         HasSubstr("call void @free(ptr"),
         HasSubstr("ret i32 42"),
         HasSubstr("call i32 @allocateAndFree()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+// ============================================================================
+// DEFER STATEMENT TESTS
+// ============================================================================
+
+TEST_F(LLVMCompilerTest, BasicDeferStatement) {
+    std::string input = R"(
+        def dummy() -> void {
+            x: int = 42
+        }
+
+        def test_defer() -> void {
+            defer dummy()
+            y: int = 100
+        }
+
+        test_defer()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("define void @dummy()"),
+        HasSubstr("define void @test_defer()"),
+        HasSubstr("call void @dummy()"),  // defer call should be generated
+        HasSubstr("call void @test_defer()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, MultipleDeferStatements) {
+    std::string input = R"(
+        def test_multiple_defer() -> void {
+            defer 1
+            defer 2
+            defer 3
+            x: int = 42
+        }
+
+        test_multiple_defer()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("define void @test_multiple_defer()"),
+        HasSubstr("call void @test_multiple_defer()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, NestedBlockDeferStatements) {
+    std::string input = R"(
+        def test_nested_defer() -> void {
+            defer 1
+            {
+                defer 2
+                x: int = 42
+            }
+            defer 3
+        }
+
+        test_nested_defer()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("define void @test_nested_defer()"),
+        HasSubstr("call void @test_nested_defer()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, DeferWithFunctionCall) {
+    std::string input = R"(
+        def cleanup() -> void {
+            x: int = 1
+        }
+
+        def test_defer_function() -> int {
+            defer cleanup()
+            x: int = 100
+            return x
+        }
+
+        test_defer_function()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("define void @cleanup()"),
+        HasSubstr("define i32 @test_defer_function()"),
+        HasSubstr("call void @cleanup()"),  // defer cleanup call
+        HasSubstr("call i32 @test_defer_function()"),
         Not(HasSubstr("<badref>"))
     ));
 }
