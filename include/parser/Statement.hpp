@@ -111,7 +111,7 @@ class WhileStatement: public Statement {
 
 struct StatementParameter {
     Token name;
-    Token type; 
+    ParsedType type; 
 };
 
 class FunctionDefinition : public Statement {
@@ -192,11 +192,11 @@ class ExternStatement : public Statement {
     public: 
         Token functionName;
         std::vector<StatementParameter> parameters; 
-        Token returnType;
+        ParsedType returnType;
 
         ExternStatement(Token functionName,
                         std::vector<StatementParameter> parameters,
-                        Token returnType) 
+                        ParsedType returnType) 
             : functionName(functionName), parameters(std::move(parameters)),
                 returnType(returnType) {}
 

@@ -5,6 +5,8 @@
 #include "../parser/Statement.hpp"
 #include "../parser/ParsedType.hpp"
 
+class ScopeManager;
+
 class LLVMTypeSystem {
     public:
         static llvm::Type* getLLVMType(llvm::LLVMContext& context, TokenType tokenType);
@@ -18,5 +20,5 @@ class LLVMTypeSystem {
         static llvm::StructType* getSharedPointerType(llvm::LLVMContext& context, TokenType elementType);
         static llvm::StructType* getWeakPointerType(llvm::LLVMContext& context, TokenType elementType);
         static bool isPointerCompatbile();
-        static llvm::Type* inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node);
+        static llvm::Type* inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node, ScopeManager& scopeManager);
 };

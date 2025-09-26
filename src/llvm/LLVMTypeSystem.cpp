@@ -1,5 +1,6 @@
 #include "../../include/llvm/LLVMTypeSystem.hpp"
 #include "../../include/llvm/ErrorReporter.hpp"
+#include "../../include/llvm/ScopeManager.hpp"
 
 llvm::Type* LLVMTypeSystem::getLLVMType(llvm::LLVMContext& context, TokenType tokenType) {
     switch (tokenType) {
@@ -180,15 +181,47 @@ llvm::StructType* LLVMTypeSystem::getWeakPointerType(llvm::LLVMContext& context,
     return llvm::StructType::create(context, fields, "weak_ptr" + tokenTypeToString(elementType));
 }
 
-llvm::Type* LLVMTypeSystem::inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node) {
+llvm::Type* LLVMTypeSystem::inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node, ScopeManager& scopeManager) {
     // This function will be enhanced with a scope manager parameter in the future
     // For now, we'll implement a basic version that defaults to int
     // TODO: This should analyze the operand's type more carefully
     // For example, if operand is an identifier, look up its declared type
 
-    if (dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
-        // TODO: Look up the variable's declared type in symbol table
-        // For now, assume int pointer -> int element
+    // For nested dereferences (like **ptr), we need to check if the operand is another dereference
+    if (const auto* unaryExpr = dynamic_cast<const UnaryExpression*>(node.operand.get())) {
+        if (unaryExpr->operator_.getType() == TokenType::MULT) {
+            // The operand is another dereference
+            // We need to recursively determine what type that inner dereference produces
+            if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(unaryExpr->operand.get())) {
+                // This is a case like **ptr where the innermost operand is an identifier
+                // Look up the identifier's type to determine the correct result type
+                ParsedType* varType = scopeManager.lookupType(identExpr->name);
+                if (varType && varType->isPointer && varType->nestingLevel > 2) {
+                    // More than 2 levels: ***int -> **int -> *int, so return pointer
+                    return llvm::PointerType::getUnqual(context);
+                } else if (varType && varType->isPointer && varType->nestingLevel == 2) {
+                    // Exactly 2 levels: **int -> *int -> int, so return base type
+                    return getLLVMType(context, varType->primaryType.getType());
+                }
+                // Fallback for unknown cases
+                return llvm::Type::getInt32Ty(context);
+            }
+        }
+    }
+
+    if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
+        // Look up the variable's declared type in symbol table
+        ParsedType* varType = scopeManager.lookupType(identExpr->name);
+        if (varType && varType->isPointer && varType->nestingLevel > 1) {
+            // This is a multi-level pointer (like **int)
+            // Dereferencing it once should give us a pointer with one less nesting level
+            return llvm::PointerType::getUnqual(context);
+        } else if (varType && varType->isPointer && varType->nestingLevel == 1) {
+            // This is a single-level pointer (like *int)
+            // Dereferencing it should give us the base type
+            return getLLVMType(context, varType->primaryType.getType());
+        }
+        // Fallback: assume int pointer -> int element
         return llvm::Type::getInt32Ty(context);
     }
 

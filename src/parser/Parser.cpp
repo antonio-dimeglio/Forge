@@ -759,7 +759,7 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
 
             params.push_back(StatementParameter {
                 .name = name,
-                .type = typeResult->primaryType
+                .type = *typeResult
             });
 
             
@@ -981,7 +981,7 @@ MethodDefinition Parser::parseMethodDefinition() {
 
             parameters.push_back(StatementParameter {
                 .name = name,
-                .type = typeResult->primaryType
+                .type = *typeResult
             });
 
             
@@ -1040,7 +1040,7 @@ std::unique_ptr<Statement> Parser::parseExternStatement() {
 
             params.push_back(StatementParameter {
                 .name = name,
-                .type = typeResult->primaryType
+                .type = *typeResult
             });
 
             if (current().getType() == TokenType::COMMA) {
@@ -1062,7 +1062,7 @@ std::unique_ptr<Statement> Parser::parseExternStatement() {
         throw ParsingException("Expected valid return type", current().getLine(), current().getColumn());
     }
 
-    return std::make_unique<ExternStatement>(functionName, std::move(params), returnTypeResult->primaryType);
+    return std::make_unique<ExternStatement>(functionName, std::move(params), *returnTypeResult);
 }
 
 std::unique_ptr<Expression> Parser::parseLiteral() {

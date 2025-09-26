@@ -151,6 +151,12 @@ def fibonacci(n: int) -> int {
     return fibonacci(n-1) + fibonacci(n-2)
 }
 
+// Option and Result types
+def divide(a: int, b: int) -> Maybe<int> {
+    if (b == 0) { return None }
+    return Some(a / b)
+}
+
 // Control flow
 if (x > 0) {
     print("Positive")
@@ -166,14 +172,8 @@ while (x > 0) {
 ### Planned Advanced Features
 ```rust
 // Safe pointer types
-unique<Buffer> buffer = new Buffer(1024)
-shared<Connection> conn = share(connection)
-
-// Option and Result types
-def divide(a: int, b: int) -> Option<int> {
-    if (b == 0) { return None }
-    return Some(a / b)
-}
+buffer unique Buffer = new Buffer(1024)
+conn shared Connection = share(connection)
 
 // Pattern matching
 match divide(10, 2) {

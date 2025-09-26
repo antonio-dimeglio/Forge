@@ -56,4 +56,5 @@ def test_nested_pointers() -> int {
 // Main test runner
 up_main: unique int = 999
 sp_main: shared int = 888
+
 result: int = test_raw_pointers()

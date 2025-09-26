@@ -6,15 +6,8 @@ llvm::Value* BinaryOperationHandler::handleOperation(
     llvm::Value* lhs,
     llvm::Value* rhs) {
 
-    // Check for pointer arithmetic first
-    if (lhs->getType()->isPointerTy() && rhs->getType()->isIntegerTy()) {
-        return handlePointerArithmetic(builder, op, lhs, rhs);
-    } else if (lhs->getType()->isIntegerTy() && rhs->getType()->isPointerTy()) {
-        // Handle integer + pointer (commutative for addition)
-        if (op == TokenType::PLUS) {
-            return handlePointerArithmetic(builder, op, rhs, lhs);
-        }
-    } else if (lhs->getType()->isPointerTy() && rhs->getType()->isPointerTy()) {
+    // Check for pointer comparison
+    if (lhs->getType()->isPointerTy() && rhs->getType()->isPointerTy()) {
         return handlePointerComparison(builder, op, lhs, rhs);
     }
 
@@ -89,11 +82,10 @@ llvm::Value* BinaryOperationHandler::handlePointerArithmetic(
     llvm::IRBuilder<>& builder,
     TokenType op,
     llvm::Value* ptr,
-    llvm::Value* offset) {
+    llvm::Value* offset,
+    llvm::Type* elementType) {
 
-    // For opaque pointers, we assume byte-level arithmetic
-    // TODO: This should be improved to use actual element types
-    llvm::Type* elementType = llvm::Type::getInt8Ty(builder.getContext());
+    // Use the provided element type for proper pointer arithmetic
 
     switch (op) {
         case TokenType::PLUS: {

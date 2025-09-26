@@ -1,0 +1,11 @@
+
+// Test 7: Nested pointer types
+def test_nested_pointers() -> int {
+    x: int = 77
+    ptr: *int = &x
+    ptr_to_ptr: **int = &ptr
+    value: int = **ptr_to_ptr
+    return value  // Should return 77
+}
+
+test_nested_pointers()

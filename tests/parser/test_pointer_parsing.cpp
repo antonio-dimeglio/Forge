@@ -242,8 +242,8 @@ TEST_F(PointerParsingTest, ExternSimpleFunction) {
     EXPECT_EQ(externStmt->functionName.getValue(), "malloc");
     EXPECT_EQ(externStmt->parameters.size(), 1);
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "size");
-    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "int");
-    EXPECT_EQ(externStmt->returnType.getValue(), "void");
+    EXPECT_EQ(externStmt->parameters[0].type.primaryType.getValue(), "int");
+    EXPECT_EQ(externStmt->returnType.primaryType.getValue(), "void");
 }
 
 TEST_F(PointerParsingTest, ExternMultipleParameters) {
@@ -257,13 +257,13 @@ TEST_F(PointerParsingTest, ExternMultipleParameters) {
     EXPECT_EQ(externStmt->parameters.size(), 3);
 
     EXPECT_EQ(externStmt->parameters[0].name.getValue(), "dest");
-    EXPECT_EQ(externStmt->parameters[0].type.getValue(), "void");
+    EXPECT_EQ(externStmt->parameters[0].type.primaryType.getValue(), "void");
 
     EXPECT_EQ(externStmt->parameters[1].name.getValue(), "src");
-    EXPECT_EQ(externStmt->parameters[1].type.getValue(), "void");
+    EXPECT_EQ(externStmt->parameters[1].type.primaryType.getValue(), "void");
 
     EXPECT_EQ(externStmt->parameters[2].name.getValue(), "n");
-    EXPECT_EQ(externStmt->parameters[2].type.getValue(), "int");
+    EXPECT_EQ(externStmt->parameters[2].type.primaryType.getValue(), "int");
 }
 
 TEST_F(PointerParsingTest, ExternNoParameters) {
@@ -275,7 +275,7 @@ TEST_F(PointerParsingTest, ExternNoParameters) {
 
     EXPECT_EQ(externStmt->functionName.getValue(), "getpid");
     EXPECT_EQ(externStmt->parameters.size(), 0);
-    EXPECT_EQ(externStmt->returnType.getValue(), "int");
+    EXPECT_EQ(externStmt->returnType.primaryType.getValue(), "int");
 }
 
 // ============= POINTER TYPE PARSING TESTS =============
@@ -364,7 +364,7 @@ TEST_F(PointerParsingTest, ReferenceInFunctionParameter) {
 
     EXPECT_EQ(funcDef->parameters.size(), 1);
     EXPECT_EQ(funcDef->parameters[0].name.getValue(), "data");
-    EXPECT_EQ(funcDef->parameters[0].type.getValue(), "Player");
+    EXPECT_EQ(funcDef->parameters[0].type.primaryType.getValue(), "Player");
 }
 
 // ============= ERROR HANDLING TESTS =============

@@ -5,3 +5,5 @@ def initialized(s:str) -> Maybe<int> {
         return None
     }
 }
+
+initialized()

@@ -2,3 +2,4 @@ def test() -> int {
     up: unique int = 42
     return 5
 }
+test()

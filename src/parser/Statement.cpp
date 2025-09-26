@@ -82,7 +82,7 @@ std::string FunctionDefinition::toString(int indent) const {
     ss << indentStr << "  ReturnType: " << functionReturnType.getValue() << "\n";
     ss << indentStr << "  Parameters:\n";
     for (const auto& param : parameters) {
-        ss << indentStr << "    " << param.name.getValue() << ": " << param.type.getValue() << "\n";
+        ss << indentStr << "    " << param.name.getValue() << ": " << param.type.toString() << "\n";
     }
     ss << indentStr << "  Body:\n" << body->toString(indent + 2) << "\n";
     return ss.str();
@@ -167,9 +167,9 @@ std::string ExternStatement::toString(int indent) const {
 
     for (size_t i = 0; i < parameters.size(); ++i) {
         if (i > 0) ss << ", ";
-        ss << parameters[i].name.getValue() << ": " << parameters[i].type.getValue();
+        ss << parameters[i].name.getValue() << ": " << parameters[i].type.toString();
     }
 
-    ss << ") -> " << returnType.getValue();
+    ss << ") -> " << returnType.toString();
     return ss.str();
 }
