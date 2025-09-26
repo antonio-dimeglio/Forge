@@ -122,6 +122,7 @@ llvm::Value* BinaryOperationHandler::handlePointerComparison(
         case TokenType::GEQ:
             return builder.CreateICmpUGE(lhs, rhs, "ptr_ge");
         default:
+            ErrorReporter::compilationError("Unsupported pointer comparison operation");
             return nullptr; // Unsupported pointer comparison
     }
 }

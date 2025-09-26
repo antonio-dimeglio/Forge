@@ -2,6 +2,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/IRBuilder.h>
 #include "../lexer/Token.hpp"
+#include "ErrorReporter.hpp"
 
 class BinaryOperationHandler {
     public:

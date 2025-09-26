@@ -48,6 +48,8 @@ llvm::Value* ExpressionCodeGenerator::generateLiteral(const LiteralExpression& n
             return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1);
         case TokenType::FALSE:
             return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0);
+        case TokenType::NULL_:
+            return llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(context));
         default:
             return nullptr; 
     }

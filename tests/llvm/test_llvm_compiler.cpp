@@ -382,6 +382,40 @@ TEST_F(LLVMCompilerTest, PointerDereferenceAssignment) {
     ));
 }
 
+TEST_F(LLVMCompilerTest, ComprehensivePointerOperations) {
+    std::string input = R"(
+        def test_pointer_operations() -> void {
+            x: int = 42
+            ptr: *int = &x
+            value: int = *ptr
+            *ptr = 100
+            next_ptr: *int = ptr + 1
+        }
+        test_pointer_operations()
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        // Function definition
+        HasSubstr("define void @test_pointer_operations()"),
+        // Variable initialization
+        HasSubstr("store i32 42, ptr %x"),
+        // Address-of operator: ptr = &x
+        HasSubstr("store ptr %x, ptr %ptr"),
+        // Dereference operator: value = *ptr
+        HasSubstr("load ptr, ptr %ptr"),
+        HasSubstr("load i32, ptr %"),
+        // Dereference assignment: *ptr = 100
+        HasSubstr("store i32 100, ptr %"),
+        // Pointer arithmetic: ptr + 1
+        HasSubstr("getelementptr i32, ptr %"),
+        HasSubstr("i32 1"),
+        // Function call
+        HasSubstr("call void @test_pointer_operations()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
 // ============================================================================
 // BLOCK STATEMENT TESTS
 // ============================================================================
