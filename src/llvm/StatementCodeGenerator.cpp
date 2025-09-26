@@ -104,11 +104,23 @@ void StatementCodeGenerator::generateVariableDeclaration(const VariableDeclarati
     }
 
     if (node.type.smartPointerType != SmartPointerType::None) {
-        auto varValue = expressionCodeGen.generate(*node.expr);
-        memoryManager.createSmartPointerVariable(node, varValue);
+        // Smart pointers can only be assigned from 'new' expressions
+        if (const auto* newExpr = dynamic_cast<const NewExpression*>(node.expr.get())) {
+            auto varValue = expressionCodeGen.generate(*node.expr);
+            memoryManager.createSmartPointerVariable(node, varValue);
+            return;
+        } else {
+            ErrorReporter::compilationError("Smart pointers must be assigned from 'new' expressions, not literals or other values");
+            return;
+        }
+    }
+
+    // Regular variables cannot be assigned from 'new' expressions
+    if (const auto* newExpr = dynamic_cast<const NewExpression*>(node.expr.get())) {
+        ErrorReporter::compilationError("Regular variables cannot be assigned from 'new' expressions. Use smart pointer types (unique, shared, weak) instead.");
         return;
     }
-    
+
     auto varType = LLVMTypeSystem::getLLVMType(context, node.type);
     auto varValue = expressionCodeGen.generate(*node.expr);
     auto actualType = varValue->getType();

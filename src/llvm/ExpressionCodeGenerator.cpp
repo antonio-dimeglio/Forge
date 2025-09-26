@@ -319,9 +319,7 @@ llvm::Value* ExpressionCodeGenerator::generateMemberAccess(const MemberAccessExp
 }
 
 llvm::Value* ExpressionCodeGenerator::generateNew(const NewExpression& node) {
-    // Generate LLVM code for "new value" expressions
-    // This creates a heap-allocated value for smart pointers
-    // Is this it? is there some more code that need to be called here???
+
     return generate(*node.valueExpression);
 }
 

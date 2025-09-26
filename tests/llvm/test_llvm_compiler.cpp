@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "../../include/llvm/LLVMCompiler.hpp"
+#include "../../include/llvm/ErrorReporter.hpp"
 #include "../../include/parser/Parser.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
 #include <llvm/IR/Verifier.h>
@@ -40,6 +41,19 @@ protected:
         compiler = std::make_unique<LLVMCompiler>(); // Reset for each call
         compiler->compile(*ast);
         return compiler->getModule();
+    }
+
+    bool compileWithErrorCheck(const std::string& input) {
+        // Record error count before compilation
+        size_t errorsBefore = ErrorReporter::getErrorCount();
+
+        try {
+            compileToIR(input);
+            // Check if new errors were introduced
+            return ErrorReporter::getErrorCount() > errorsBefore;
+        } catch (...) {
+            return true; // Any exception means compilation failed
+        }
     }
 };
 
@@ -665,6 +679,62 @@ TEST_F(LLVMCompilerTest, DeferWithFunctionCall) {
         HasSubstr("define i32 @test_defer_function()"),
         HasSubstr("call void @cleanup()"),  // defer cleanup call
         HasSubstr("call i32 @test_defer_function()"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+// ============================================================================
+// SMART POINTER TYPE SAFETY TESTS
+// ============================================================================
+
+TEST_F(LLVMCompilerTest, SharedPointerCorrectUsage) {
+    // This should compile successfully
+    std::string input = R"(
+        sp: shared int = new 42
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),  // Smart pointer type should be present
+        HasSubstr("call"),        // Should have function calls for setup
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerRejectsLiteralAssignment) {
+    // This should fail at compilation
+    std::string input = R"(
+        sp: shared int = 42
+    )";
+
+    // Test that compilation produces errors
+    EXPECT_TRUE(compileWithErrorCheck(input));
+}
+
+TEST_F(LLVMCompilerTest, RegularVariableRejectsNewExpression) {
+    // This should fail at compilation
+    std::string input = R"(
+        x: int = new 42
+    )";
+
+    // Test that compilation produces errors
+    EXPECT_TRUE(compileWithErrorCheck(input));
+}
+
+TEST_F(LLVMCompilerTest, SmartPointerTypeSafety) {
+    // Test comprehensive type safety rules
+    std::string validInput = R"(
+        good1: shared int = new 42
+        good2: unique int = new 100
+        good3: weak int = new 200
+    )";
+
+    // Valid code should compile without errors
+    std::string ir = compileToIR(validInput);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("unique_ptr"),
+        HasSubstr("weak_ptr"),
         Not(HasSubstr("<badref>"))
     ));
 }
