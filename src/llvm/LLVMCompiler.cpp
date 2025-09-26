@@ -128,8 +128,12 @@ llvm::Value* LLVMCompiler::visit(const Expression& node) {
         return visit(*inac);
     } else if (const auto* meac = dynamic_cast<const MemberAccessExpression*>(&node)) {
         return visit(*meac);
-    } 
-    
+    } else if (const auto* newEx = dynamic_cast<const NewExpression*>(&node)) {
+        return visit(*newEx);
+    } else if (const auto* moveEx = dynamic_cast<const MoveExpression*>(&node)) {
+        return visit(*moveEx);
+    }
+
     return ErrorReporter::compilationError(std::string(typeid(node).name()));
 }
 
@@ -155,7 +159,7 @@ void LLVMCompiler::visit(const VariableDeclaration& node) {
     auto varValue = visit(*node.expr);
     llvm::AllocaInst* ptr = builder.CreateAlloca(varType, nullptr, varName);
     builder.CreateStore(varValue, ptr);
-    scopeManager.declare(varName, ptr);
+    scopeManager.declare(varName, ptr, node.type);
 }
 
 void LLVMCompiler::createSmartPointerVariable(const VariableDeclaration& node) {
@@ -191,7 +195,7 @@ void LLVMCompiler::createSmartPointerVariable(const VariableDeclaration& node) {
     }
 
     // 6. Register the variable in scope
-    scopeManager.declare(varName, smartPtr);
+    scopeManager.declare(varName, smartPtr, node.type);
     smartPointersInScope.push_back({smartPtr, node.type.smartPointerType});
 }
 
@@ -516,6 +520,10 @@ llvm::Value* LLVMCompiler::visit(const UnaryExpression& node) {
     // Special handling for address-of operator - need variable address, not value
     if (op == TokenType::BITWISE_AND) {
         if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
+            if (scopeManager.isVariableMoved(identExpr->name)) {
+                ErrorReporter::compilationError("Tried to access address-of-variable after move");
+                return nullptr;
+            }
             auto ptr = scopeManager.lookup(identExpr->name);
             if (!ptr) {
                 ErrorReporter::undefinedVariable(identExpr->name);
@@ -544,10 +552,68 @@ llvm::Value* LLVMCompiler::visit(const UnaryExpression& node) {
                 return builder.CreateNot(operand);
             break;
         case TokenType::MULT:
-            // Dereference operator: *ptr
-            // operand should be a pointer type, load the value it points to
+            // Dereference operator: *ptr (handles both raw pointers and smart pointers)
+
+            // For smart pointer dereferencing, we need to check if the operand is an identifier
+            // that refers to a smart pointer variable
+            if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
+                auto varPtr = scopeManager.lookup(identExpr->name);
+                if (!varPtr) {
+                    ErrorReporter::undefinedVariable(identExpr->name);
+                    return nullptr;
+                }
+                if (scopeManager.isVariableMoved(identExpr->name)) {
+                    ErrorReporter::compilationError("Tried to access variable after move");
+                    return nullptr;
+                }
+
+                // Check if this is a smart pointer variable by examining its allocated type
+                if (auto allocaInst = llvm::dyn_cast<llvm::AllocaInst>(varPtr)) {
+                    llvm::Type* allocatedType = allocaInst->getAllocatedType();
+                    if (auto structType = llvm::dyn_cast<llvm::StructType>(allocatedType)) {
+                        std::string typeName = structType->getName().str();
+                        if (typeName.find("unique_ptr") != std::string::npos ||
+                            typeName.find("shared_ptr") != std::string::npos ||
+                            typeName.find("weak_ptr") != std::string::npos) {
+
+                            // Smart pointer dereference: extract data pointer and load the value
+                            llvm::Value* dataFieldPtr = builder.CreateGEP(
+                                structType, varPtr,
+                                {builder.getInt32(0), builder.getInt32(0)},
+                                "smart_ptr_data_field"
+                            );
+
+                            // Load the data pointer (opaque pointer compatible)
+                            llvm::Value* actualDataPtr = builder.CreateLoad(
+                                llvm::PointerType::getUnqual(context),
+                                dataFieldPtr,
+                                "smart_ptr_data"
+                            );
+
+                            // Load the actual value from the data pointer
+                            // Use proper type inference based on the smart pointer's element type
+                            llvm::Type* elementType = llvm::Type::getInt32Ty(context); // Default fallback
+
+                            // Try to infer the element type from the struct type name
+                            if (typeName.find("INT") != std::string::npos) {
+                                elementType = llvm::Type::getInt32Ty(context);
+                            } else if (typeName.find("FLOAT") != std::string::npos) {
+                                elementType = llvm::Type::getFloatTy(context);
+                            } else if (typeName.find("DOUBLE") != std::string::npos) {
+                                elementType = llvm::Type::getDoubleTy(context);
+                            } else if (typeName.find("BOOL") != std::string::npos) {
+                                elementType = llvm::Type::getInt1Ty(context);
+                            }
+
+                            return builder.CreateLoad(elementType, actualDataPtr, "smart_ptr_value");
+                        }
+                    }
+                }
+            }
+
+            // For regular pointer dereferencing, evaluate the operand first
             if (operand->getType()->isPointerTy()) {
-                // For opaque pointers, we need to infer the element type from the AST
+                // Regular raw pointer dereference
                 llvm::Type* elementType = LLVMTypeSystem::inferPointerElementType(context, node);
                 if (!elementType) {
                     // Default to int for now, but this should be improved
@@ -579,7 +645,78 @@ llvm::Value* LLVMCompiler::visit(const IdentifierExpression& node) {
 }
 
 llvm::Value* LLVMCompiler::visit(const MemberAccessExpression& node) {
+    // Get the object being accessed
+    if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.object.get())) {
+        // Look up the variable to get its allocation information
+        auto varPtr = scopeManager.lookup(identExpr->name);
+        if (!varPtr) {
+            ErrorReporter::undefinedVariable(identExpr->name);
+            return nullptr;
+        }
+
+        // Check if this is a smart pointer variable by examining its allocated type
+        if (auto allocaInst = llvm::dyn_cast<llvm::AllocaInst>(varPtr)) {
+            llvm::Type* allocatedType = allocaInst->getAllocatedType();
+            if (auto structType = llvm::dyn_cast<llvm::StructType>(allocatedType)) {
+                std::string typeName = structType->getName().str();
+
+                // Check if this is a smart pointer type (unique_ptr, shared_ptr, etc.)
+                if (typeName.find("unique_ptr") != std::string::npos ||
+                    typeName.find("shared_ptr") != std::string::npos ||
+                    typeName.find("weak_ptr") != std::string::npos) {
+
+                    // Smart pointer struct layout: { data_ptr, destructor_ptr, ... }
+                    // Get the data pointer (first field - index 0)
+                    llvm::Value* dataFieldPtr = builder.CreateGEP(
+                        structType, varPtr,
+                        {builder.getInt32(0), builder.getInt32(0)},
+                        "smart_ptr_data_field"
+                    );
+
+                    // Load the actual data pointer (opaque pointer compatible)
+                    llvm::Value* actualDataPtr = builder.CreateLoad(
+                        llvm::PointerType::getUnqual(context),
+                        dataFieldPtr,
+                        "smart_ptr_data"
+                    );
+
+                    // TODO: For now, just return the data pointer
+                    // In a full implementation, we'd need to:
+                    // 1. Determine the field offset of memberName in the target type
+                    // 2. Generate GEP to access that specific field
+                    // 3. Handle method calls vs field access differently
+
+                    return actualDataPtr;
+                }
+            }
+        }
+    }
+
+    // For regular (non-smart-pointer) types, this would be standard struct field access
+    // TODO: Implement regular struct member access
+    ErrorReporter::compilationError("Member access on non-smart-pointer types not yet implemented");
     return nullptr;
+}
+
+llvm::Value* LLVMCompiler::visit(const NewExpression& node) {
+    // Generate LLVM code for "new value" expressions
+    // This creates a heap-allocated value for smart pointers
+    return visit(*node.valueExpression);
+}
+
+llvm::Value* LLVMCompiler::visit(const MoveExpression& node) {
+    if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.operand.get())) {
+        std::string varName = identExpr->name;
+
+        if (scopeManager.isVariableMoved(varName)) {
+            return ErrorReporter::compilationError("Tried to move already moved variable");
+        }
+
+        scopeManager.markVariableAsMoved(varName);
+    }
+
+    llvm::Value* operandValue = visit(*node.operand);
+    return operandValue;
 }
 
 llvm::Value* LLVMCompiler::visit(const IndexAccessExpression& node) {

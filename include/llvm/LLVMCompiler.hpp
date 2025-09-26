@@ -60,8 +60,10 @@ class LLVMCompiler {
         llvm::Value* visit(const BinaryExpression& node);
         llvm::Value* visit(const UnaryExpression& node);
         llvm::Value* visit(const IdentifierExpression& node);
-        llvm::Value* visit(const FunctionCall& node);         
-        llvm::Value* visit(const ArrayLiteralExpression& node);     
+        llvm::Value* visit(const FunctionCall& node);
+        llvm::Value* visit(const ArrayLiteralExpression& node);
         llvm::Value* visit(const IndexAccessExpression& node);
         llvm::Value* visit(const MemberAccessExpression& node);
+        llvm::Value* visit(const NewExpression& node);
+        llvm::Value* visit(const MoveExpression& node);
 };

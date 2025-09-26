@@ -146,6 +146,16 @@ std::string GenericInstantiation::toString(int indent) const {
     return ss.str();
 }
 
+std::string NewExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "NewExpression";
+    if (valueExpression) {
+        ss << "\n" << makeIndent(indent + 1) << "Value:";
+        ss << "\n" << valueExpression->toString(indent + 2);
+    }
+    return ss.str();
+}
+
 std::string OptionalExpression::toString(int indent) const {
     std::stringstream ss;
 

@@ -1150,28 +1150,35 @@ std::unique_ptr<Expression> Parser::parseParenthesizedExpression() {
 std::unique_ptr<Expression> Parser::parseNewExpression() {
     advance(); // consume 'new'
 
-    Token className = expect(TokenType::IDENTIFIER, "Expected class name after 'new'");
-    expect(TokenType::LPAREN, "Expected '(' after class name");
+    // Check if this is a class instantiation (new ClassName(...)) or value instantiation (new value)
+    if (current().getType() == TokenType::IDENTIFIER && peek().getType() == TokenType::LPAREN) {
+        // Class instantiation: new ClassName(args)
+        Token className = expect(TokenType::IDENTIFIER, "Expected class name after 'new'");
+        expect(TokenType::LPAREN, "Expected '(' after class name");
 
-    std::vector<std::unique_ptr<Expression>> arguments;
-    if (current().getType() != TokenType::RPAREN) {
-        while (true) {
-            arguments.push_back(parseExpression());
+        std::vector<std::unique_ptr<Expression>> arguments;
+        if (current().getType() != TokenType::RPAREN) {
+            while (true) {
+                arguments.push_back(parseExpression());
 
-            if (current().getType() == TokenType::COMMA) {
-                advance();
-                continue;
-            } else if (current().getType() == TokenType::RPAREN) {
-                break;
-            } else {
-                throw ParsingException("Expected ',' or ')' in constructor arguments", current().getLine(), current().getColumn());
+                if (current().getType() == TokenType::COMMA) {
+                    advance();
+                    continue;
+                } else if (current().getType() == TokenType::RPAREN) {
+                    break;
+                } else {
+                    throw ParsingException("Expected ',' or ')' in constructor arguments", current().getLine(), current().getColumn());
+                }
             }
         }
+
+        expect(TokenType::RPAREN, "Expected ')' after constructor arguments");
+        return std::make_unique<ObjectInstantiation>(className, std::move(arguments));
+    } else {
+        // Value instantiation: new value
+        auto valueExpression = parseExpression();
+        return std::make_unique<NewExpression>(std::move(valueExpression));
     }
-
-    expect(TokenType::RPAREN, "Expected ')' after constructor arguments");
-
-    return std::make_unique<ObjectInstantiation>(className, std::move(arguments));
 }
 
 std::unique_ptr<Expression> Parser::parseOptional() {

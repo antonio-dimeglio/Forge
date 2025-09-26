@@ -140,6 +140,16 @@ class MoveExpression : public Expression {
         std::string toString(int indent = 0) const override;
 };
 
+class NewExpression : public Expression {
+    public:
+        std::unique_ptr<Expression> valueExpression;
+
+        NewExpression(std::unique_ptr<Expression> valueExpression)
+            : valueExpression(std::move(valueExpression)) {}
+
+        std::string toString(int indent = 0) const override;
+};
+
 class OptionalExpression : public Expression {
     public:
         Token type;

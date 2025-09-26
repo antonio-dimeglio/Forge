@@ -181,6 +181,7 @@ llvm::StructType* LLVMTypeSystem::getWeakPointerType(llvm::LLVMContext& context,
 }
 
 llvm::Type* LLVMTypeSystem::inferPointerElementType(llvm::LLVMContext& context, const UnaryExpression& node) {
+    // This function will be enhanced with a scope manager parameter in the future
     // For now, we'll implement a basic version that defaults to int
     // TODO: This should analyze the operand's type more carefully
     // For example, if operand is an identifier, look up its declared type
