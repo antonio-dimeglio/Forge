@@ -1,0 +1,23 @@
+def test_pointer_operations() -> void {
+    // Test basic variable declaration
+    x: int = 42
+
+
+    // Test address-of operator
+    ptr: *int = &x
+
+
+    // Test dereference operator
+    value: int = *ptr
+
+        // Test dereference assignment
+    *ptr = 100   // Gives Error: Complex assignment LHS not yet implemented in LLVM compiler
+
+    // Test pointer arithmetic
+    next_ptr: *int = ptr + 1 // Segfaults
+
+    // Test simple pointer declaration
+    raw_ptr: *int = null // Also segfaults
+}
+
+test_pointer_operations()

@@ -118,13 +118,12 @@ void StatementCodeGenerator::generateVariableDeclaration(const VariableDeclarati
 
 void StatementCodeGenerator::generateAssignment(const Assignment& node) {
     // TODO: Full implementation needed to handle all LHS expression types:
-    // - *ptr = value (dereference assignment)
     // - arr[i] = value (array index assignment)
     // - obj.field = value (member access assignment)
 
     // For now, handle simple identifier assignment
-    auto identifierExpr = dynamic_cast<const IdentifierExpression*>(node.lvalue.get());
-    if (identifierExpr) {
+    
+    if (auto identifierExpr = dynamic_cast<const IdentifierExpression*>(node.lvalue.get())) {
         auto varName = identifierExpr->name;
         auto varPtr = scopeManager.lookup(varName);
 
@@ -135,9 +134,20 @@ void StatementCodeGenerator::generateAssignment(const Assignment& node) {
 
         auto newValue = expressionCodeGen.generate(*node.rvalue);
         builder.CreateStore(newValue, varPtr);
+    } else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(node.lvalue.get())) {
+        if (unaryExpr->operator_.getType() == TokenType::MULT) {
+            auto ptrValue = expressionCodeGen.generate(*unaryExpr->operand);
+            if (!ptrValue->getType()->isPointerTy()) {
+                ErrorReporter::compilationError("Attempting to dereference a non-pointer type in assignment");
+                return;
+            }
+            auto newValue = expressionCodeGen.generate(*node.rvalue);
+            builder.CreateStore(newValue, ptrValue);
+        } else {
+            ErrorReporter::compilationError("Unsupported unary operator in LHS of assignment");
+        }
     } else {
-        // Complex LHS assignment not yet implemented
-        throw std::runtime_error("Complex assignment LHS not yet implemented in LLVM compiler");
+        ErrorReporter::compilationError("Unsupported LHS in assignment - only simple identifiers supported for now");
     }
 }
 

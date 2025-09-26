@@ -1,14 +1,20 @@
 # Compiler settings
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude 
-GTEST_FLAGS = -lgtest -lgtest_main -pthread
+CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude
+
+# GTest configuration - different for macOS vs Linux
+ifeq ($(shell uname), Darwin)
+	GTEST_FLAGS = -L/opt/homebrew/opt/googletest/lib -I/opt/homebrew/opt/googletest/include -lgtest -lgtest_main -pthread
+else
+	GTEST_FLAGS = -lgtest -lgtest_main -pthread
+endif
 
 # LLVM configuration
 LLVM_CONFIG = llvm-config-15
 # Filter out conflicting LLVM flags and suppress LLVM warnings
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags | sed 's/-std=c++[0-9][0-9]//g' | sed 's/-fno-exceptions//g')
 ifeq ($(shell uname), Darwin)
-	LLVM_CXXFLAGS += -Iinclude -I/opt/homebrew/include -I/opt/homebrew/opt/llvm@15/include
+	LLVM_CXXFLAGS += -Iinclude -I/opt/homebrew/include -I/opt/homebrew/opt/llvm@15/include -I/opt/homebrew/opt/googletest/include
 else
 	LLVM_CXXFLAGS += -Iinclude -I/usr/include/llvm-15
 endif

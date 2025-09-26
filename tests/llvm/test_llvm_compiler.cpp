@@ -360,6 +360,28 @@ TEST_F(LLVMCompilerTest, VariableAssignment) {
     ));
 }
 
+TEST_F(LLVMCompilerTest, PointerDereferenceAssignment) {
+    std::string input = R"(
+        x: int = 42
+        ptr: *int = &x
+        *ptr = 100
+        result: int = *ptr
+    )";
+    std::string ir = compileToIR(input);
+
+    EXPECT_THAT(ir, AllOf(
+        // Basic setup
+        HasSubstr("store i32 42, ptr %x"),
+        HasSubstr("store ptr %x, ptr %ptr"),
+        // Dereference assignment: *ptr = 100
+        HasSubstr("load ptr, ptr %ptr"),
+        HasSubstr("store i32 100, ptr %"),
+        // Reading back: result = *ptr
+        HasSubstr("load i32, ptr %"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
 // ============================================================================
 // BLOCK STATEMENT TESTS
 // ============================================================================
