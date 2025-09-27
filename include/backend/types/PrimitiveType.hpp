@@ -14,7 +14,6 @@ namespace forge::types {
         private:
             TokenType primitiveKind_;
 
-
         public:
             explicit PrimitiveType(TokenType kind);
 

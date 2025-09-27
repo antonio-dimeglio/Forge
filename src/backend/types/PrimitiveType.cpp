@@ -7,6 +7,7 @@ namespace forge::types {
         this->primitiveKind_ = kind;
     }
 
+
     std::string PrimitiveType::toString() const {
         switch (this->primitiveKind_) {
             case TokenType::INT: return "int";

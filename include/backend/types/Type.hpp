@@ -1,6 +1,8 @@
 #pragma once
 #include "Kind.hpp"
 #include <string>
+#include <optional>
+#include <memory>
 #include <llvm/IR/Type.h>
 
 namespace forge::types {
