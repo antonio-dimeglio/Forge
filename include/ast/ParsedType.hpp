@@ -2,7 +2,10 @@
 #include "../lexer/Token.hpp"
 #include <vector>
 
-class Parser; 
+// Forward declaration for the global Parser class
+class Parser;
+
+namespace forge::ast {
 
 enum class SmartPointerType {
     None,
@@ -25,3 +28,5 @@ struct ParsedType {
     bool isSmartPointer() const { return smartPointerType != SmartPointerType::None; }
     std::string toString() const;
 };
+
+} // namespace forge::ast

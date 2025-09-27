@@ -1,6 +1,8 @@
-#include "../../include/parser/Expression.hpp"
+#include "../../include/ast/Expression.hpp"
 #include "../../include/lexer/TokenType.hpp"
 #include <sstream>
+
+namespace forge::ast {
 
 // Helper function to create indentation
 std::string makeIndent(int indent) {
@@ -35,17 +37,9 @@ std::string UnaryExpression::toString(int indent) const {
     return ss.str();
 }
 
-std::string MoveExpression::toString(int indent) const {
-    std::stringstream ss;
-    ss << makeIndent(indent) << "MoveExpression: " << moveToken.getValue() << "\n";
-    ss << makeIndent(indent + 1) << "Operand:\n" << operand->toString(indent + 2);
-    return ss.str();
-}
-
 std::string FunctionCall::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
     std::stringstream ss;
-    ss << indentStr << "FunctionCall: " << functionName;
+    ss << makeIndent(indent) << "FunctionCall: " << functionName;
 
     if (!typeArguments.empty()) {
         ss << "<";
@@ -55,7 +49,14 @@ std::string FunctionCall::toString(int indent) const {
         }
         ss << ">";
     }
-    ss << "()";
+
+    ss << "(";
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << "\n" << arguments[i]->toString(indent + 2);
+    }
+    if (!arguments.empty()) ss << "\n" << makeIndent(indent);
+    ss << ")";
 
     return ss.str();
 }
@@ -63,23 +64,17 @@ std::string FunctionCall::toString(int indent) const {
 std::string ArrayLiteralExpression::toString(int indent) const {
     std::stringstream ss;
     ss << makeIndent(indent) << "ArrayLiteral: [";
-    if (!arrayValues.empty()) {
-        ss << "\n";
-        for (size_t i = 0; i < arrayValues.size(); ++i) {
-            ss << arrayValues[i]->toString(indent + 1);
-            if (i < arrayValues.size() - 1) {
-                ss << ",\n";
-            } else {
-                ss << "\n";
-            }
-        }
-        ss << makeIndent(indent) << "]";
-    } else {
-        ss << "]";
+
+    for (size_t i = 0; i < arrayValues.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << "\n" << arrayValues[i]->toString(indent + 2);
     }
+
+    if (!arrayValues.empty()) ss << "\n" << makeIndent(indent);
+    ss << "]";
+
     return ss.str();
 }
-
 
 std::string IndexAccessExpression::toString(int indent) const {
     std::stringstream ss;
@@ -89,20 +84,17 @@ std::string IndexAccessExpression::toString(int indent) const {
     return ss.str();
 }
 
-
 std::string MemberAccessExpression::toString(int indent) const {
     std::stringstream ss;
     ss << makeIndent(indent) << "MemberAccess: " << memberName;
-    if (isMethodCall) {
-        ss << "()";
-    }
+    if (isMethodCall) ss << " (method call)";
     ss << "\n";
     ss << makeIndent(indent + 1) << "Object:\n" << object->toString(indent + 2);
 
-    if (isMethodCall && !arguments.empty()) {
+    if (!arguments.empty()) {
         ss << "\n" << makeIndent(indent + 1) << "Arguments:";
-        for (size_t i = 0; i < arguments.size(); ++i) {
-            ss << "\n" << arguments[i]->toString(indent + 2);
+        for (const auto& arg : arguments) {
+            ss << "\n" << arg->toString(indent + 2);
         }
     }
 
@@ -111,58 +103,60 @@ std::string MemberAccessExpression::toString(int indent) const {
 
 std::string ObjectInstantiation::toString(int indent) const {
     std::stringstream ss;
-    ss << makeIndent(indent) << "ObjectInstantiation: " << className.getValue();
+    ss << makeIndent(indent) << "ObjectInstantiation: " << className.getValue() << "(";
 
-    if (!arguments.empty()) {
-        ss << "\n" << makeIndent(indent + 1) << "Arguments:";
-        for (size_t i = 0; i < arguments.size(); ++i) {
-            ss << "\n" << arguments[i]->toString(indent + 2);
-        }
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << "\n" << arguments[i]->toString(indent + 2);
     }
+
+    if (!arguments.empty()) ss << "\n" << makeIndent(indent);
+    ss << ")";
 
     return ss.str();
 }
 
 std::string GenericInstantiation::toString(int indent) const {
     std::stringstream ss;
-    ss << makeIndent(indent) << "GenericInstantiation: " << className.getValue();
+    ss << makeIndent(indent) << "GenericInstantiation: " << className.getValue() << "<";
 
-    if (!typeArguments.empty()) {
-        ss << "[";
-        for (size_t i = 0; i < typeArguments.size(); ++i) {
-            ss << typeArguments[i].getValue();
-            if (i < typeArguments.size() - 1) ss << ", ";
-        }
-        ss << "]";
+    for (size_t i = 0; i < typeArguments.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << typeArguments[i].getValue();
     }
 
-    if (!arguments.empty()) {
-        ss << "\n" << makeIndent(indent + 1) << "Arguments:";
-        for (size_t i = 0; i < arguments.size(); ++i) {
-            ss << "\n" << arguments[i]->toString(indent + 2);
-        }
+    ss << ">(";
+
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << "\n" << arguments[i]->toString(indent + 2);
     }
 
+    if (!arguments.empty()) ss << "\n" << makeIndent(indent);
+    ss << ")";
+
+    return ss.str();
+}
+
+std::string MoveExpression::toString(int indent) const {
+    std::stringstream ss;
+    ss << makeIndent(indent) << "MoveExpression:\n";
+    ss << makeIndent(indent + 1) << "Operand:\n" << operand->toString(indent + 2);
     return ss.str();
 }
 
 std::string NewExpression::toString(int indent) const {
     std::stringstream ss;
-    ss << makeIndent(indent) << "NewExpression";
-    if (valueExpression) {
-        ss << "\n" << makeIndent(indent + 1) << "Value:";
-        ss << "\n" << valueExpression->toString(indent + 2);
-    }
+    ss << makeIndent(indent) << "NewExpression:\n";
+    ss << makeIndent(indent + 1) << "Value:\n" << valueExpression->toString(indent + 2);
     return ss.str();
 }
 
 std::string OptionalExpression::toString(int indent) const {
     std::stringstream ss;
-
-    // if type is TokenType::SOME print the value, otherwise print just None
-    ss << type.getValue();
-    if (value != nullptr) {
-        ss << "(" << value->toString() << ")";
-    }
+    ss << makeIndent(indent) << "OptionalExpression: " << type.getValue() << "\n";
+    ss << makeIndent(indent + 1) << "Value:\n" << value->toString(indent + 2);
     return ss.str();
 }
+
+} // namespace forge::ast

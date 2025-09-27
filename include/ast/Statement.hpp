@@ -5,8 +5,9 @@
 #include <vector>
 #include "Expression.hpp"
 #include "ParsedType.hpp"
+#include "../backend/errors/ErrorTypes.hpp"
 
-class BytecodeCompiler;
+namespace forge::ast {
 
 class Statement {
     public:
@@ -14,38 +15,50 @@ class Statement {
         template<typename Visitor>
         auto accept(Visitor& visitor) const -> decltype(visitor.visit(*this)) { return visitor.visit(*this); }
         virtual std::string toString(int indent = 0) const = 0;
+
+        // Source location for error reporting
+        forge::errors::SourceLocation getLocation() const { return location_; }
+
+    protected:
+        forge::errors::SourceLocation location_;
+
+    public:
+        Statement(forge::errors::SourceLocation location) : location_(location) {}
 };
 
 class Program : public Statement {
     public:
         std::vector<std::unique_ptr<Statement>> statements;
 
-        Program(std::vector<std::unique_ptr<Statement>> statements)
-            : statements(std::move(statements)) {}
+        Program(
+            std::vector<std::unique_ptr<Statement>> statements,
+            forge::errors::SourceLocation location
+        ) : Statement(location), statements(std::move(statements)) {}
         std::string toString(int indent = 0) const override;
 };
-
 
 class ExpressionStatement : public Statement {
     public:
         std::unique_ptr<Expression> expression;
 
-        ExpressionStatement(std::unique_ptr<Expression> expr)
-            : expression(std::move(expr)) {}
+        ExpressionStatement(
+            std::unique_ptr<Expression> expr,
+            forge::errors::SourceLocation location
+        ) : Statement(location), expression(std::move(expr)) {}
         std::string toString(int indent = 0) const override;
 };
-
 
 class VariableDeclaration: public Statement {
     public:
         Token variable;
         ParsedType type;
         std::unique_ptr<Expression> expr;
-        VariableDeclaration (
+        VariableDeclaration(
             Token variable,
             ParsedType type,
-            std::unique_ptr<Expression> expr
-        ) : variable(variable), type(type), expr(std::move(expr)) {}
+            std::unique_ptr<Expression> expr,
+            forge::errors::SourceLocation location
+        ) : Statement(location), variable(variable), type(type), expr(std::move(expr)) {}
         std::string toString(int indent = 0) const override;
 };
 
@@ -55,11 +68,11 @@ class Assignment: public Statement {
         std::unique_ptr<Expression> rvalue;  // Right-hand side expression
         Assignment(
             std::unique_ptr<Expression> lvalue,
-            std::unique_ptr<Expression> rvalue
-        ) : lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
+            std::unique_ptr<Expression> rvalue,
+            forge::errors::SourceLocation location
+        ) : Statement(location), lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
         std::string toString(int indent = 0) const override;
 };
-
 
 class IndexAssignment: public Statement {
     public:
@@ -67,19 +80,22 @@ class IndexAssignment: public Statement {
         std::unique_ptr<Expression> rvalue;  // The value to assign
         IndexAssignment(
             std::unique_ptr<Expression> lvalue,
-            std::unique_ptr<Expression> rvalue
-        ) : lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
+            std::unique_ptr<Expression> rvalue,
+            forge::errors::SourceLocation location
+        ) : Statement(location), lvalue(std::move(lvalue)), rvalue(std::move(rvalue)) {}
         std::string toString(int indent = 0) const override;
 };
 
 class BlockStatement : public Statement {
-public:
-    std::vector<std::unique_ptr<Statement>> statements;
+    public:
+        std::vector<std::unique_ptr<Statement>> statements;
 
-    explicit BlockStatement(std::vector<std::unique_ptr<Statement>> stmts)
-        : statements(std::move(stmts)) {}
+        explicit BlockStatement(
+            std::vector<std::unique_ptr<Statement>> stmts,
+            forge::errors::SourceLocation location
+        ) : Statement(location), statements(std::move(stmts)) {}
 
-    std::string toString(int indent = 0) const override;
+        std::string toString(int indent = 0) const override;
 };
 
 class IfStatement: public Statement {
@@ -90,8 +106,9 @@ class IfStatement: public Statement {
         IfStatement(
             std::unique_ptr<Expression> condition,
             std::unique_ptr<BlockStatement> thenBlock,
-            std::unique_ptr<BlockStatement> elseBlock
-        ) : condition(std::move(condition)),
+            std::unique_ptr<BlockStatement> elseBlock,
+            forge::errors::SourceLocation location
+        ) : Statement(location), condition(std::move(condition)),
             thenBlock(std::move(thenBlock)),
             elseBlock(std::move(elseBlock)) {}
         std::string toString(int indent = 0) const override;
@@ -103,15 +120,16 @@ class WhileStatement: public Statement {
         std::unique_ptr<BlockStatement> body;
         WhileStatement(
             std::unique_ptr<Expression> condition,
-            std::unique_ptr<BlockStatement> body
-        ) : condition(std::move(condition)),
+            std::unique_ptr<BlockStatement> body,
+            forge::errors::SourceLocation location
+        ) : Statement(location), condition(std::move(condition)),
             body(std::move(body)) {}
         std::string toString(int indent = 0) const override;
 };
 
 struct StatementParameter {
     Token name;
-    ParsedType type; 
+    ParsedType type;
 };
 
 class FunctionDefinition : public Statement {
@@ -125,8 +143,9 @@ class FunctionDefinition : public Statement {
             Token functionName, Token functionReturnType,
             std::vector<Token> typeParameters,
             std::vector<StatementParameter> parameters,
-            std::unique_ptr<BlockStatement> body
-        ) : functionName(functionName), functionReturnType(functionReturnType),
+            std::unique_ptr<BlockStatement> body,
+            forge::errors::SourceLocation location
+        ) : Statement(location), functionName(functionName), functionReturnType(functionReturnType),
             typeParameters(typeParameters), parameters(parameters), body(std::move(body)) {}
         std::string toString(int indent = 0) const override;
 };
@@ -134,17 +153,17 @@ class FunctionDefinition : public Statement {
 class ReturnStatement : public Statement {
     public:
         std::unique_ptr<Expression> returnValue;
-        
+
         ReturnStatement(
-            std::unique_ptr<Expression> returnValue
-        ) : returnValue(std::move(returnValue)) {};
+            std::unique_ptr<Expression> returnValue,
+            forge::errors::SourceLocation location
+        ) : Statement(location), returnValue(std::move(returnValue)) {}
         std::string toString(int indent = 0) const override;
 };
 
-
 struct FieldDefinition {
     Token name;
-    Token type;    
+    Token type;
 };
 
 struct MethodDefinition {
@@ -170,8 +189,9 @@ class ClassDefinition : public Statement {
         ClassDefinition(Token className,
                         std::vector<Token> genericParameters,
                         std::vector<FieldDefinition> fields,
-                        std::vector<MethodDefinition> methods)
-            : className(className), genericParameters(std::move(genericParameters)),
+                        std::vector<MethodDefinition> methods,
+                        forge::errors::SourceLocation location)
+            : Statement(location), className(className), genericParameters(std::move(genericParameters)),
             fields(std::move(fields)), methods(std::move(methods)) {}
 
         std::string toString(int indent = 0) const override;
@@ -181,24 +201,28 @@ class DeferStatement : public Statement {
     public:
         std::unique_ptr<Expression> expression;
 
-        DeferStatement(std::unique_ptr<Expression> expression)
-            : expression(std::move(expression)) {}
+        DeferStatement(
+            std::unique_ptr<Expression> expression,
+            forge::errors::SourceLocation location
+        ) : Statement(location), expression(std::move(expression)) {}
 
-        
         std::string toString(int indent = 0) const override;
 };
 
 class ExternStatement : public Statement {
-    public: 
+    public:
         Token functionName;
-        std::vector<StatementParameter> parameters; 
+        std::vector<StatementParameter> parameters;
         ParsedType returnType;
 
         ExternStatement(Token functionName,
                         std::vector<StatementParameter> parameters,
-                        ParsedType returnType) 
-            : functionName(functionName), parameters(std::move(parameters)),
+                        ParsedType returnType,
+                        forge::errors::SourceLocation location)
+            : Statement(location), functionName(functionName), parameters(std::move(parameters)),
                 returnType(returnType) {}
 
         std::string toString(int indent = 0) const override;
 };
+
+} // namespace forge::ast

@@ -1,4 +1,6 @@
-#include "../../include/parser/ParsedType.hpp"
+#include "../../include/ast/ParsedType.hpp"
+
+namespace forge::ast {
 
 std::string ParsedType::toString() const {
     std::string result = "";
@@ -48,3 +50,5 @@ std::string ParsedType::toString() const {
 
     return result;
 }
+
+} // namespace forge::ast

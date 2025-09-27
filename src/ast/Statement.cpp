@@ -1,9 +1,14 @@
-#include "../../include/parser/Statement.hpp"
+#include "../../include/ast/Statement.hpp"
 #include "../../include/lexer/TokenType.hpp"
 #include <sstream>
 
+namespace forge::ast {
+
+// Helper function to create indentation - shared with Expression.cpp
+extern std::string makeIndent(int indent);
+
 std::string VariableDeclaration::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "VariableDeclaration: " << variable.getValue()
        << ":" << type.toString() << " = \n"
@@ -12,7 +17,7 @@ std::string VariableDeclaration::toString(int indent) const {
 }
 
 std::string Assignment::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "Assignment:\n"
        << indentStr << "  LValue:\n" << lvalue->toString(indent + 2) << "\n"
@@ -21,7 +26,7 @@ std::string Assignment::toString(int indent) const {
 }
 
 std::string IndexAssignment::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "IndexAssignment:\n"
        << indentStr << "  LValue:\n" << lvalue->toString(indent + 2) << "\n"
@@ -30,7 +35,7 @@ std::string IndexAssignment::toString(int indent) const {
 }
 
 std::string BlockStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "BlockStatement:\n";
     ss << indentStr << "{\n";
@@ -42,7 +47,7 @@ std::string BlockStatement::toString(int indent) const {
 }
 
 std::string IfStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "IfStatement:\n";
     ss << indentStr << "  Condition:\n" << condition->toString(indent + 2) << "\n";
@@ -53,9 +58,8 @@ std::string IfStatement::toString(int indent) const {
     return ss.str();
 }
 
-
 std::string WhileStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "WhileStatement:\n";
     ss << indentStr << "  Condition:\n" << condition->toString(indent + 2) << "\n";
@@ -63,9 +67,8 @@ std::string WhileStatement::toString(int indent) const {
     return ss.str();
 }
 
-
 std::string FunctionDefinition::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "FunctionDefinition: " << functionName.getValue();
 
@@ -89,7 +92,7 @@ std::string FunctionDefinition::toString(int indent) const {
 }
 
 std::string ReturnStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "ReturnStatement:\n";
     ss << indentStr << "  Value:" << returnValue->toString(indent + 2) << "\n";
@@ -97,16 +100,15 @@ std::string ReturnStatement::toString(int indent) const {
 }
 
 std::string ExpressionStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "ExpressionStatement:\n"
        << expression->toString(indent + 1);
     return ss.str();
 }
 
-
 std::string Program::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "Program:\n";
     for (const auto& stmt : statements) {
@@ -119,7 +121,7 @@ std::string Program::toString(int indent) const {
 }
 
 std::string ClassDefinition::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "ClassDefinition: " << className.getValue();
 
@@ -153,7 +155,7 @@ std::string ClassDefinition::toString(int indent) const {
 }
 
 std::string DeferStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "DeferStatement:\n"
        << expression->toString(indent + 1);
@@ -161,7 +163,7 @@ std::string DeferStatement::toString(int indent) const {
 }
 
 std::string ExternStatement::toString(int indent) const {
-    std::string indentStr = std::string(indent * 2, ' ');
+    std::string indentStr = makeIndent(indent);
     std::stringstream ss;
     ss << indentStr << "ExternStatement: " << functionName.getValue() << "(";
 
@@ -173,3 +175,5 @@ std::string ExternStatement::toString(int indent) const {
     ss << ") -> " << returnType.toString();
     return ss.str();
 }
+
+} // namespace forge::ast

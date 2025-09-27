@@ -1,7 +1,18 @@
 #include "../../include/parser/Parser.hpp"
 #include "../../include/parser/ParserException.hpp"
-#include "../../include/parser/ParsedType.hpp"
+#include "../../include/ast/ParsedType.hpp"
 #include <iostream>
+
+using namespace forge::ast;
+
+forge::errors::SourceLocation Parser::getCurrentLocation() const {
+    Token token = current();
+    return forge::errors::SourceLocation("", token.getLine(), token.getColumn(), 1);
+}
+
+forge::errors::SourceLocation Parser::getTokenLocation(const Token& token) const {
+    return forge::errors::SourceLocation("", token.getLine(), token.getColumn(), 1);
+}
 
 Token Parser::expect(TokenType expectedType, const std::string& errorMessage) {
     if (current().getType() != expectedType) {
@@ -16,7 +27,7 @@ void Parser::skipNewLines() {
     }
 }
 
-Token Parser::current() {
+Token Parser::current() const {
     if (idx >= tokens.size()) {
         return Token(TokenType::END_OF_FILE, -1, -1);
     }
@@ -24,7 +35,7 @@ Token Parser::current() {
     return tokens[idx];
 }
 
-Token Parser::peek(int offset) {
+Token Parser::peek(int offset) const {
     size_t actual = idx + offset; 
 
     if (actual >= tokens.size()) {
@@ -239,7 +250,7 @@ std::unique_ptr<Statement> Parser::parseExpressionStatement() {
         throw ParsingException("Unproperly terminated line", t.getLine(), t.getColumn());
     }
     
-    return std::make_unique<ExpressionStatement>(std::move(expr));
+    return std::make_unique<ExpressionStatement>(std::move(expr), getCurrentLocation());
 }
 
 std::unique_ptr<Expression> Parser::parseExpression() {
@@ -254,7 +265,7 @@ std::unique_ptr<Expression> Parser::parseLogicalOr() {
         auto right = parseLogicalAnd();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -268,7 +279,7 @@ std::unique_ptr<Expression> Parser::parseLogicalAnd() {
         auto right = parseEquality();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -282,7 +293,7 @@ std::unique_ptr<Expression> Parser::parseBitwiseOr() {
         auto right = parseBitwiseXor();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -296,7 +307,7 @@ std::unique_ptr<Expression> Parser::parseBitwiseXor() {
         auto right = parseBitwiseAnd();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -310,7 +321,7 @@ std::unique_ptr<Expression> Parser::parseBitwiseAnd() {
         auto right = parseTerm();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -326,7 +337,7 @@ std::unique_ptr<Expression> Parser::parseEquality() {
         auto right = parseComparison();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -336,14 +347,14 @@ std::unique_ptr<Expression> Parser::parseComparison() {
     auto expr = parseBitwiseOr();
 
     while (current().getType() == TokenType::GREATER ||
-        current().getType() == TokenType::GEQ || 
-        current().getType() == TokenType::LESS || 
+        current().getType() == TokenType::GEQ ||
+        current().getType() == TokenType::LESS ||
         current().getType() == TokenType::LEQ ) {
-        
-        Token operator_ = advance(); 
+
+        Token operator_ = advance();
         auto right = parseBitwiseOr();
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr;
@@ -359,7 +370,7 @@ std::unique_ptr<Expression> Parser::parseTerm() {
         auto right = parseFactor();
 
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr; 
@@ -370,10 +381,10 @@ std::unique_ptr<Expression> Parser::parseFactor() {
 
     while (current().getType() == TokenType::MULT ||
             current().getType() == TokenType::DIV) {
-        Token operator_ = advance(); 
-        auto right = parseUnary(); 
+        Token operator_ = advance();
+        auto right = parseUnary();
         expr = std::make_unique<BinaryExpression>(
-            std::move(expr), operator_, std::move(right));
+            std::move(expr), operator_, std::move(right), getCurrentLocation());
     }
 
     return expr; 
@@ -393,22 +404,22 @@ std::unique_ptr<Expression> Parser::parseUnary() {
                 Token mutRefToken(TokenType::MUT_REF, "&mut", token.getLine(), token.getColumn());
                 advance(); // consume 'mut'
                 auto operand = parseUnary();
-                return std::make_unique<UnaryExpression>(mutRefToken, std::move(operand));
+                return std::make_unique<UnaryExpression>(mutRefToken, std::move(operand), getCurrentLocation());
             } else {
                 // Regular & (address-of) operator
                 auto operand = parseUnary();
-                return std::make_unique<UnaryExpression>(token, std::move(operand));
+                return std::make_unique<UnaryExpression>(token, std::move(operand), getCurrentLocation());
             }
         }
         case TokenType::MULT: {
             advance();
             auto operand = parseUnary();
-            return std::make_unique<UnaryExpression>(token, std::move(operand));
+            return std::make_unique<UnaryExpression>(token, std::move(operand), getCurrentLocation());
         }
         case TokenType::MOVE: {
             advance();
             auto operand = parseUnary();
-            return std::make_unique<MoveExpression>(token, std::move(operand));
+            return std::make_unique<MoveExpression>(token, std::move(operand), getCurrentLocation());
         }
         default:
             return parsePostfix();
@@ -446,7 +457,7 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
             auto index = parseExpression();
             
             expect(TokenType::RSQUARE, "Expected ']'");
-            expr = std::make_unique<IndexAccessExpression>(std::move(expr), std::move(index));
+            expr = std::make_unique<IndexAccessExpression>(std::move(expr), std::move(index), getCurrentLocation());
         } else if (current().getType() == TokenType::DOT) {
             // Member access: obj.member or obj.method(args)
             advance(); // consume .
@@ -461,11 +472,11 @@ std::unique_ptr<Expression> Parser::parsePostfix() {
                 advance(); // consume (
                 auto arguments = parseArgumentList();
                 expect(TokenType::RPAREN, "Expected ')' after argument list");
-                expr = std::make_unique<MemberAccessExpression>(std::move(expr), memberName, std::move(arguments), true);
+                expr = std::make_unique<MemberAccessExpression>(std::move(expr), memberName, std::move(arguments), true, getCurrentLocation());
             } else {
                 // Simple member access: obj.member
                 std::vector<std::unique_ptr<Expression>> emptyArgs;
-                expr = std::make_unique<MemberAccessExpression>(std::move(expr), memberName, std::move(emptyArgs), false);
+                expr = std::make_unique<MemberAccessExpression>(std::move(expr), memberName, std::move(emptyArgs), false, getCurrentLocation());
             }
         } else {
             break;
@@ -527,7 +538,8 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     return std::make_unique<VariableDeclaration>(
         identifier,
         parsedType,
-        std::move(expression)
+        std::move(expression),
+        getCurrentLocation()
     );
 }
 
@@ -544,11 +556,12 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
     auto rvalue = parseExpression();
 
     // Create identifier expression for LHS
-    auto lvalue = std::make_unique<IdentifierExpression>(identifier.getValue());
+    auto lvalue = std::make_unique<IdentifierExpression>(identifier.getValue(), getCurrentLocation());
 
     return std::make_unique<Assignment>(
         std::move(lvalue),
-        std::move(rvalue)
+        std::move(rvalue),
+        getCurrentLocation()
     );
 }
 
@@ -560,7 +573,7 @@ std::unique_ptr<Statement> Parser::parseAssignmentOrExpression() {
     if (current().getType() == TokenType::ASSIGN) {
         advance(); // consume '='
         auto rhs = parseExpression();
-        return std::make_unique<Assignment>(std::move(lhs), std::move(rhs));
+        return std::make_unique<Assignment>(std::move(lhs), std::move(rhs), getCurrentLocation());
     }
     else if (current().getType() == TokenType::INFER_ASSIGN) {
         // Handle type inference assignment (identifier := expression)
@@ -588,11 +601,11 @@ std::unique_ptr<Statement> Parser::parseAssignmentOrExpression() {
             .smartPointerType = SmartPointerType::None
         };
 
-        return std::make_unique<VariableDeclaration>(identifierToken, parsedAutoType, std::move(rhs));
+        return std::make_unique<VariableDeclaration>(identifierToken, parsedAutoType, std::move(rhs), getCurrentLocation());
     }
     else {
         // Not an assignment, return as expression statement
-        return std::make_unique<ExpressionStatement>(std::move(lhs));
+        return std::make_unique<ExpressionStatement>(std::move(lhs), getCurrentLocation());
     }
 }
 
@@ -624,7 +637,8 @@ std::unique_ptr<Statement> Parser::parseInferredDeclaration() {
     return std::make_unique<VariableDeclaration>(
         identifier,
         parsedInferredType,  // Placeholder - actual type inference happens later
-        std::move(expression)
+        std::move(expression),
+        getCurrentLocation()
     );
 }
 
@@ -637,10 +651,10 @@ std::unique_ptr<Statement> Parser::parseIndexAssignmentOrExpression() {
     if (current().getType() == TokenType::ASSIGN) {
         advance(); // consume =
         auto rvalueExpr = parseExpression();
-        return std::make_unique<IndexAssignment>(std::move(lvalueExpr), std::move(rvalueExpr));
+        return std::make_unique<IndexAssignment>(std::move(lvalueExpr), std::move(rvalueExpr), getCurrentLocation());
     } else {
         // This is just an expression statement
-        return std::make_unique<ExpressionStatement>(std::move(lvalueExpr));
+        return std::make_unique<ExpressionStatement>(std::move(lvalueExpr), getCurrentLocation());
     }
 }   
 
@@ -663,7 +677,7 @@ std::unique_ptr<BlockStatement> Parser::parseBlockStatement() {
 
     expect(TokenType::RBRACE, "Expected }");
 
-    return std::make_unique<BlockStatement>(std::move(statements));
+    return std::make_unique<BlockStatement>(std::move(statements), getCurrentLocation());
 }
 
 std::unique_ptr<Statement> Parser::parseIfStatement() {
@@ -692,7 +706,8 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
     return std::make_unique<IfStatement>(
         std::move(expression),
         std::move(thenBlock),
-        std::move(elseBlock)
+        std::move(elseBlock),
+        getCurrentLocation()
     );
 }
 
@@ -710,7 +725,8 @@ std::unique_ptr<Statement> Parser::parseWhileStatement() {
 
     return std::make_unique<WhileStatement>(
         std::move(expression),
-        std::move(body)
+        std::move(body),
+        getCurrentLocation()
     );
 }
 
@@ -722,7 +738,8 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
     auto value = parseExpression();
 
     return std::make_unique<ReturnStatement>(
-        std::move(value)
+        std::move(value),
+        getCurrentLocation()
     );
 }
 
@@ -814,7 +831,8 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
             returnTypeResult->primaryType,
             typeParameters,
             params,
-            std::move(body)
+            std::move(body),
+            getCurrentLocation()
         );
 }
 
@@ -859,7 +877,7 @@ std::unique_ptr<Statement> Parser::parseProgram() {
         skipNewLines();
     }
 
-    return std::make_unique<Program>(std::move(statements));
+    return std::make_unique<Program>(std::move(statements), getCurrentLocation());
 }
 
 std::unique_ptr<Expression> Parser::parseArrayLiteral() {
@@ -883,7 +901,7 @@ std::unique_ptr<Expression> Parser::parseArrayLiteral() {
     }
 
     advance(); // consume ]
-    return std::make_unique<ArrayLiteralExpression>(std::move(elements));
+    return std::make_unique<ArrayLiteralExpression>(std::move(elements), getCurrentLocation());
 }
 
 std::unique_ptr<Expression> Parser::parseGenericInstantiation(Token className) {
@@ -937,7 +955,7 @@ std::unique_ptr<Expression> Parser::parseGenericInstantiation(Token className) {
 
     advance(); // consume ')'
 
-    return std::make_unique<GenericInstantiation>(className, std::move(typeArguments), std::move(arguments));
+    return std::make_unique<GenericInstantiation>(className, std::move(typeArguments), std::move(arguments), getCurrentLocation());
 }
 
 std::unique_ptr<Statement> Parser::parseClassDefinition() {
@@ -991,7 +1009,7 @@ std::unique_ptr<Statement> Parser::parseClassDefinition() {
     }
     expect(TokenType::RBRACE, "Expected '}' to close class definition");
 
-    return std::make_unique<ClassDefinition>(className, std::move(genericParameters), std::move(fields), std::move(methods));
+    return std::make_unique<ClassDefinition>(className, std::move(genericParameters), std::move(fields), std::move(methods), getCurrentLocation());
 }
 
 FieldDefinition Parser::parseFieldDefinition() {
@@ -1069,7 +1087,7 @@ std::unique_ptr<Statement> Parser::parseDeferStatement() {
 
     auto expression = parseExpression();
 
-    return std::make_unique<DeferStatement>(std::move(expression));
+    return std::make_unique<DeferStatement>(std::move(expression), getCurrentLocation());
 }
 
 std::unique_ptr<Statement> Parser::parseExternStatement() {
@@ -1115,13 +1133,13 @@ std::unique_ptr<Statement> Parser::parseExternStatement() {
         throw ParsingException("Expected valid return type", current().getLine(), current().getColumn());
     }
 
-    return std::make_unique<ExternStatement>(functionName, std::move(params), *returnTypeResult);
+    return std::make_unique<ExternStatement>(functionName, std::move(params), *returnTypeResult, getCurrentLocation());
 }
 
 std::unique_ptr<Expression> Parser::parseLiteral() {
     Token token = current();
     advance();
-    return std::make_unique<LiteralExpression>(token);
+    return std::make_unique<LiteralExpression>(token, getCurrentLocation());
 }
 
 std::unique_ptr<Expression> Parser::parseIdentifierExpression() {
@@ -1160,7 +1178,7 @@ std::unique_ptr<Expression> Parser::parseIdentifierExpression() {
             return parseGenericInstantiation(identifier);
         } else {
             // This is array access, return identifier and let postfix handle it
-            return std::make_unique<IdentifierExpression>(identifier.getValue());
+            return std::make_unique<IdentifierExpression>(identifier.getValue(), getCurrentLocation());
         }
     } else if (current().getType() == TokenType::LPAREN) {
         // Regular function call: func(args)
@@ -1186,10 +1204,10 @@ std::unique_ptr<Expression> Parser::parseIdentifierExpression() {
 
         expect(TokenType::RPAREN, "Expected ')'");
 
-        return std::make_unique<FunctionCall>(identifier.getValue(), std::vector<Token>{}, std::move(arguments));
+        return std::make_unique<FunctionCall>(identifier.getValue(), std::vector<Token>{}, std::move(arguments), getCurrentLocation());
     } else {
         // Just a variable: identifier
-        return std::make_unique<IdentifierExpression>(identifier.getValue());
+        return std::make_unique<IdentifierExpression>(identifier.getValue(), getCurrentLocation());
     }
 }
 
@@ -1226,11 +1244,11 @@ std::unique_ptr<Expression> Parser::parseNewExpression() {
         }
 
         expect(TokenType::RPAREN, "Expected ')' after constructor arguments");
-        return std::make_unique<ObjectInstantiation>(className, std::move(arguments));
+        return std::make_unique<ObjectInstantiation>(className, std::move(arguments), getCurrentLocation());
     } else {
         // Value instantiation: new value
         auto valueExpression = parseExpression();
-        return std::make_unique<NewExpression>(std::move(valueExpression));
+        return std::make_unique<NewExpression>(std::move(valueExpression), getCurrentLocation());
     }
 }
 
@@ -1238,8 +1256,8 @@ std::unique_ptr<Expression> Parser::parseOptional() {
     Token token = current();
     advance(); // Consume the SOME or NONE token
     if (token.getType() == TokenType::SOME) {
-        return std::make_unique<OptionalExpression>(token, parseExpression());
+        return std::make_unique<OptionalExpression>(token, parseExpression(), getCurrentLocation());
     } else {
-        return std::make_unique<OptionalExpression>(token, nullptr);
+        return std::make_unique<OptionalExpression>(token, nullptr, getCurrentLocation());
     }
 }

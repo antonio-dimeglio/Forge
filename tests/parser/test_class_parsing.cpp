@@ -1,10 +1,13 @@
 #include <gtest/gtest.h>
 #include "../../include/parser/Parser.hpp"
-#include "../../include/parser/Statement.hpp"
+#include "../../include/ast/Statement.hpp"
+#include "../../include/ast/Expression.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
 #include "../../include/parser/ParserException.hpp"
 #include <memory>
 #include <vector>
+
+using namespace forge::ast;
 
 // Use the external helper functions from test_parser.cpp
 extern std::unique_ptr<Statement> parseStatement(const std::string& input);

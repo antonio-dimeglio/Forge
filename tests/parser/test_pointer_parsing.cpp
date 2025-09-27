@@ -1,7 +1,11 @@
 #include <gtest/gtest.h>
 #include "../../include/parser/Parser.hpp"
+#include "../../include/ast/Statement.hpp"
+#include "../../include/ast/Expression.hpp"
 #include "../../include/parser/ParserException.hpp"
 #include "../../include/lexer/Tokenizer.hpp"
+
+using namespace forge::ast;
 
 class PointerParsingTest : public ::testing::Test {
 protected:
