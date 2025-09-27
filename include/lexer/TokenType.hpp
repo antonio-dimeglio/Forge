@@ -54,6 +54,7 @@
     X(MAYBE, "MAYBE") \
     X(SOME, "SOME") \
     X(NONE, "NONE") \
+    X(MUT, "MUT") \
     \
     /* Punctuation */ \
     X(LPAREN, "LPAREN") \

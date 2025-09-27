@@ -349,3 +349,5 @@ Program:
             Literal: 2 (NUMBER)
 ```
 For developers, implementing the correct parsing steps requires in most instances either implementing a new node type (either of type expression or statement), or to modify one of the existing one to support a new/different syntax. Once that is done, changing the rules applied to parse the tokens in the Parser.cpp will allow to obtain the correct behaviour. It is __strongly__ advised to first implement tests for a new feature and to iteratively work on it until all tests passes during modificaiton for the parsing rules.
+
+## LLVM Compilation

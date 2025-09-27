@@ -113,8 +113,7 @@ std::optional<ParsedType> Parser::parseType() {
             isPtr = true;
         } else if (current().getType() == TokenType::BITWISE_AND) {
             advance();
-            if (current().getType() == TokenType::IDENTIFIER &&
-                current().getValue() == "mut") {
+            if (current().getType() == TokenType::MUT) {
                 isMutref = true;
                 advance();
             } else {
@@ -386,7 +385,21 @@ std::unique_ptr<Expression> Parser::parseUnary() {
     switch (token.getType()) {
         case TokenType::NOT:
         case TokenType::MINUS:
-        case TokenType::BITWISE_AND:
+        case TokenType::BITWISE_AND: {
+            advance();
+            // Check if this is &mut (mutable reference) syntax
+            if (current().getType() == TokenType::MUT) {
+                // Create a special token for &mut operator
+                Token mutRefToken(TokenType::MUT_REF, "&mut", token.getLine(), token.getColumn());
+                advance(); // consume 'mut'
+                auto operand = parseUnary();
+                return std::make_unique<UnaryExpression>(mutRefToken, std::move(operand));
+            } else {
+                // Regular & (address-of) operator
+                auto operand = parseUnary();
+                return std::make_unique<UnaryExpression>(token, std::move(operand));
+            }
+        }
         case TokenType::MULT: {
             advance();
             auto operand = parseUnary();

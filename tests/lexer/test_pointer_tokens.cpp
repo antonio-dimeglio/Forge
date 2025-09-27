@@ -96,7 +96,7 @@ TEST_F(PointerTokenTest, MutableReference) {
     auto tokens = tokenize("&mut variable");
     ASSERT_EQ(tokens.size(), 4);
     expectToken(tokens[0], TokenType::BITWISE_AND, "&");
-    expectToken(tokens[1], TokenType::IDENTIFIER, "mut");  // Will be added as keyword later
+    expectToken(tokens[1], TokenType::MUT, "mut");  // Now recognized as keyword
     expectToken(tokens[2], TokenType::IDENTIFIER, "variable");
     expectToken(tokens[3], TokenType::END_OF_FILE);
 }

@@ -30,7 +30,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"Some", TokenType::SOME},
     {"None", TokenType::NONE},
     {"new", TokenType::NEW},
-    {"void", TokenType::VOID}
+    {"void", TokenType::VOID},
+    {"mut", TokenType::MUT}
 };
 
 char Tokenizer::current() {

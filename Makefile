@@ -2,6 +2,14 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude
 
+# 🔥 DEVELOPMENT SAFETY TOOLS (From Day 3-4 Roadmap)
+# Enable memory safety and undefined behavior detection
+DEBUG_FLAGS = -fsanitize=address -fsanitize=undefined -g -DDEBUG_BUILD
+ifdef DEBUG
+	CXXFLAGS += $(DEBUG_FLAGS)
+	LDFLAGS += -fsanitize=address -fsanitize=undefined
+endif
+
 # GTest configuration - different for macOS vs Linux
 ifeq ($(shell uname), Darwin)
 	GTEST_FLAGS = -L/opt/homebrew/opt/googletest/lib -I/opt/homebrew/opt/googletest/include -lgtest -lgtest_main -pthread
