@@ -1,5 +1,6 @@
 #include "../../../include/backend/errors/ErrorReporter.hpp"
 #include "../../../include/backend/errors/ErrorTypes.hpp"
+#include <algorithm>
 
 namespace forge::errors {
     void ErrorReporter::reportError(std::unique_ptr<CompilerError> error) {

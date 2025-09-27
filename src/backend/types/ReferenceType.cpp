@@ -21,14 +21,19 @@ namespace forge::types {
     bool ReferenceType::isAssignableFrom(const Type& other) const {
         if (other.getKind() != Kind::Reference) return false;
         const ReferenceType& otherRef = static_cast<const ReferenceType&>(other);
-        if (isMutable_ && !otherRef.isMutable_) return false; // Can't assign immutable to mutable
+        // Mutable reference parameter can accept mutable reference argument: ✅
+        // Immutable reference parameter can accept mutable reference argument: ✅ (downgrade)
+        // Immutable reference parameter can accept immutable reference argument: ✅
+        // Mutable reference parameter CANNOT accept immutable reference argument: ❌ (upgrade)
+        if (isMutable_ && !otherRef.isMutable_) return false;
         return pointedType_->isAssignableFrom(otherRef.getPointedType());
     }
 
     bool ReferenceType::canImplicitlyConvertTo(const Type& other) const {
         if (other.getKind() != Kind::Reference) return false;
         const ReferenceType& otherRef = static_cast<const ReferenceType&>(other);
-        if (isMutable_ && !otherRef.isMutable_) return false; 
+        // Can't convert immutable reference to mutable reference
+        if (!isMutable_ && otherRef.isMutable_) return false;
         return pointedType_->canImplicitlyConvertTo(otherRef.getPointedType());
     }
 
@@ -39,5 +44,9 @@ namespace forge::types {
         auto promotedPointedTypeOpt = pointedType_->promoteWith(otherRef.getPointedType());
         if (!promotedPointedTypeOpt) return std::nullopt;
         return std::make_optional(std::make_unique<ReferenceType>(std::move(*promotedPointedTypeOpt), isMutable_));
+    }
+
+    std::unique_ptr<Type> ReferenceType::clone() const {
+        return std::make_unique<ReferenceType>(pointedType_->clone(), isMutable_);
     }
 }

@@ -6,12 +6,20 @@
 #include "../../ast/ParsedType.hpp"
 #include "../codegen/SymbolTable.hpp"
 #include "../../lexer/TokenType.hpp"
+#include "ArrayType.hpp"
+#include "ClassType.hpp"
+#include "FunctionType.hpp"
+#include "GenericType.hpp"
+#include "PointerType.hpp"
 #include "PrimitiveType.hpp"
 #include "ReferenceType.hpp"
 #include "SmartPointerType.hpp"
 
-using forge::errors::SourceLocation; 
+
+
+using forge::errors::SourceLocation;
 using forge::errors::Result;
+using forge::errors::TypeError;
 using forge::codegen::SymbolTable;
 
 namespace forge::types {
@@ -97,7 +105,7 @@ namespace forge::types {
              * @param actual The actual/source type being provided
              * @return Result<bool> indicating compatibility, or TypeError
              */
-            Result<bool, errors::TypeError>
+            Result<bool, TypeError>
             areTypesCompatible(const Type& declared, const Type& actual);
 
             /**
@@ -162,7 +170,7 @@ namespace forge::types {
              * @param location Source location for error reporting
              * @return Result<void> indicating success, or TypeError on failure
              */
-            Result<void, errors::TypeError>
+            Result<bool, errors::TypeError>
             validateFunctionCall(const Type& function, const std::vector<Type*>& args, SourceLocation location);
 
         private:

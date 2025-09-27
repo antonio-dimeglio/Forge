@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "Type.hpp"
 #include "Kind.hpp"
@@ -10,18 +10,20 @@
 #include <string>
 
 namespace forge::types {
-    class ReferenceType: public Type {
+    class FunctionType: public Type {
         private: 
-            std::unique_ptr<Type> pointedType_;
-            bool isMutable_;
+            std::unique_ptr<Type> returnType_;
+            std::vector<std::unique_ptr<Type>> parameterTypes_;
+            bool isVariadic_;
 
         public:
-            ReferenceType(std::unique_ptr<Type> pointedType, bool isMutable);
+            FunctionType(std::unique_ptr<Type> returnType, std::vector<std::unique_ptr<Type>> parameterTypes, bool isVariadic);
 
-            const Type& getPointedType() const { return *pointedType_; }
-            bool isMutable() const { return isMutable_; }
+            const Type& getReturnType() const { return *returnType_; }
+            const std::vector<std::unique_ptr<Type>>& getParameterTypes() const { return parameterTypes_; }
+            bool isVariadic() const { return isVariadic_; }
 
-            Kind getKind() const override { return Kind::Reference; }
+            Kind getKind() const override { return Kind::Function; }
             std::string toString() const override;
             size_t getSizeBytes() const override;
             llvm::Type* toLLVMType(llvm::LLVMContext& ctx) const override;
@@ -32,6 +34,6 @@ namespace forge::types {
             bool isCopyable() const override { return true; }
             bool isMovable() const override { return true; }
             std::unique_ptr<Type> clone() const override;
-            ~ReferenceType() override = default;
+            ~FunctionType() override = default;
     };
 }

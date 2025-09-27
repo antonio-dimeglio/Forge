@@ -10,28 +10,27 @@
 #include <string>
 
 namespace forge::types {
-    class ReferenceType: public Type {
+    class ClassType: public Type {
         private: 
-            std::unique_ptr<Type> pointedType_;
-            bool isMutable_;
+            std::string name_;
+            // Future: Add fields, methods, generics, etc.
 
         public:
-            ReferenceType(std::unique_ptr<Type> pointedType, bool isMutable);
+            explicit ClassType(std::string name);
 
-            const Type& getPointedType() const { return *pointedType_; }
-            bool isMutable() const { return isMutable_; }
+            const std::string& getName() const { return name_; }
 
-            Kind getKind() const override { return Kind::Reference; }
+            Kind getKind() const override { return Kind::Class; }
             std::string toString() const override;
             size_t getSizeBytes() const override;
             llvm::Type* toLLVMType(llvm::LLVMContext& ctx) const override;
             bool isAssignableFrom(const Type& other) const override;
             bool canImplicitlyConvertTo(const Type& other) const override;
             std::optional<std::unique_ptr<Type>> promoteWith(const Type& other) const override;
-            bool requiresCleanup() const override { return false; }
-            bool isCopyable() const override { return true; }
-            bool isMovable() const override { return true; }
+            bool requiresCleanup() const override { return true; }
+            bool isCopyable() const override { return false; } // Classes are not copyable by default
+            bool isMovable() const override { return true; }  // Classes are movable
             std::unique_ptr<Type> clone() const override;
-            ~ReferenceType() override = default;
+            ~ClassType() override = default;
     };
 }

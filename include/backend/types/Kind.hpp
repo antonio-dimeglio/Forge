@@ -8,7 +8,7 @@ namespace forge::types {
         SmartPointer, // Unique<T>, Shared<T>, Weak<T>
         Array, // [T; N], [T]
         Function,     // (T1, T2) -> T3
-        Struct,       // Custom user types
-        Generic       // T, U (template params)
+        Class,       // Custom user types
+        Generic,       // T, U (template params)
     };
 }

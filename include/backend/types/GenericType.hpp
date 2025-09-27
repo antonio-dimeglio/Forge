@@ -1,36 +1,35 @@
 #pragma once 
 
-#include "Kind.hpp"
 #include "Type.hpp"
-#include "../../lexer/TokenType.hpp"
+#include "Kind.hpp"
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Type.h>
-#include "llvm/IR/Constant.h"
-
-
+#include "llvm/IR/DerivedTypes.h"
+#include <optional>
+#include <memory>
+#include <string>
 
 namespace forge::types {
-    class PrimitiveType : public Type {
-        private:
-            TokenType primitiveKind_;
+    class GenericType: public Type {
+        private: 
+            std::string name_;
 
         public:
-            explicit PrimitiveType(TokenType kind);
+            explicit GenericType(std::string name);
 
-            // Getter for primitive kind
-            TokenType getPrimitiveKind() const { return primitiveKind_; }
+            const std::string& getName() const { return name_; }
 
-            // Type interface implementations
-            Kind getKind() const override { return Kind::Primitive;}
+            Kind getKind() const override { return Kind::Generic; }
             std::string toString() const override;
             size_t getSizeBytes() const override;
             llvm::Type* toLLVMType(llvm::LLVMContext& ctx) const override;
             bool isAssignableFrom(const Type& other) const override;
             bool canImplicitlyConvertTo(const Type& other) const override;
             std::optional<std::unique_ptr<Type>> promoteWith(const Type& other) const override;
-            bool requiresCleanup() const override;
-            bool isCopyable() const override;
-            bool isMovable() const override;
+            bool requiresCleanup() const override { return false; }
+            bool isCopyable() const override { return true; }
+            bool isMovable() const override { return true; }
             std::unique_ptr<Type> clone() const override;
+            ~GenericType() override = default;
     };
 }

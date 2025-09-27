@@ -72,6 +72,12 @@ namespace forge::types {
             /* 
                 Virtual destructor for proper cleanup of derived classes.
             */
+
+            /*
+            * Creates a deep copy of this type.
+            * Returns: A unique pointer to a copy of this type.
+            */
+            virtual std::unique_ptr<Type> clone() const = 0;
             virtual ~Type() = default;
     };
 };

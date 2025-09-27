@@ -1,29 +1,27 @@
 #pragma once
 
-#include <memory>
-#include <optional>
-#include <llvm/IR/Type.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/DerivedTypes.h>
 #include "Type.hpp"
 #include "Kind.hpp"
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Type.h>
+#include "llvm/IR/DerivedTypes.h"
+#include <optional>
+#include <memory>
+#include <string>
 
 namespace forge::types {
-    enum class PointerKind { Unique, Shared, Weak };
-    
-    class SmartPointerType : public Type {
-        private:
+    class ArrayType: public Type {
+        private: 
             std::unique_ptr<Type> elementType_;
-            PointerKind pointerKind_;
+            std::optional<size_t> size_; // nullopt for dynamic arrays
 
         public:
-            SmartPointerType(std::unique_ptr<Type> elementType, PointerKind pointerKind);
-            
-            const Type& getElementType() const { return *elementType_; }
-            PointerKind getPointerKind() const { return pointerKind_; }
+            ArrayType(std::unique_ptr<Type> elementType, std::optional<size_t> size);
 
-            // Type interface implementations
-            Kind getKind() const override { return Kind::SmartPointer; }
+            const Type& getElementType() const { return *elementType_; }
+            std::optional<size_t> getSize() const { return size_; }
+
+            Kind getKind() const override { return Kind::Array; }
             std::string toString() const override;
             size_t getSizeBytes() const override;
             llvm::Type* toLLVMType(llvm::LLVMContext& ctx) const override;
@@ -31,8 +29,9 @@ namespace forge::types {
             bool canImplicitlyConvertTo(const Type& other) const override;
             std::optional<std::unique_ptr<Type>> promoteWith(const Type& other) const override;
             bool requiresCleanup() const override { return true; }
-            bool isCopyable() const override;
+            bool isCopyable() const override { return true; }
             bool isMovable() const override { return true; }
             std::unique_ptr<Type> clone() const override;
+            ~ArrayType() override = default;
     };
 }

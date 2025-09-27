@@ -121,4 +121,8 @@ namespace forge::types {
         // All primitive types are movable
         return true;
     }
+
+    std::unique_ptr<Type> PrimitiveType::clone() const {
+        return std::make_unique<PrimitiveType>(*this);
+    }
 }

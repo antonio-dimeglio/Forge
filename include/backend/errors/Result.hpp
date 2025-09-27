@@ -108,4 +108,73 @@ namespace forge::errors {
             Result(const Result&) = delete;
             Result& operator=(const Result&) = delete;
     };
+
+    // Template specialization for Result<void, E>
+    template<typename E>
+    class Result<void, E> {
+        private:
+            union {
+                char dummy_; // placeholder for void
+                E error_;
+            };
+            bool isOk_;
+
+            Result(bool isOk) : dummy_(), isOk_(isOk) {}
+            Result(E error, bool) : error_(std::move(error)), isOk_(false) {}
+
+        public:
+            static Result Ok() { return Result(true); }
+            static Result Err(E error) { return Result(std::move(error), false); }
+
+            bool isOk() const { return isOk_; }
+            bool isErr() const { return !isOk_; }
+
+            void unwrap() {
+                if (!isOk_) {
+                    throw std::runtime_error("Called unwrap() on error Result");
+                }
+            }
+
+            E& error() {
+                if (isOk_) {
+                    throw std::runtime_error("Called error() on ok Result");
+                }
+                return error_;
+            }
+
+            const E& error() const {
+                if (isOk_) {
+                    throw std::runtime_error("Called error() on ok Result");
+                }
+                return error_;
+            }
+
+            ~Result() {
+                if (!isOk_) {
+                    error_.~E();
+                }
+            }
+
+            // Move constructor and assignment
+            Result(Result&& other) noexcept : isOk_(other.isOk_) {
+                if (!isOk_) {
+                    new(&error_) E(std::move(other.error_));
+                }
+            }
+
+            Result& operator=(Result&& other) noexcept {
+                if (this != &other) {
+                    this->~Result();
+                    isOk_ = other.isOk_;
+                    if (!isOk_) {
+                        new(&error_) E(std::move(other.error_));
+                    }
+                }
+                return *this;
+            }
+
+            // Delete copy operations
+            Result(const Result&) = delete;
+            Result& operator=(const Result&) = delete;
+    };
 }

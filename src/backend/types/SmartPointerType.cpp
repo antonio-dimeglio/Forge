@@ -54,8 +54,9 @@ namespace forge::types {
         
         if (!elementType_->canImplicitlyConvertTo(otherSP.getElementType())) return false;
 
-        // Implicit conversions follow the same rules as assignment
-        return isAssignableFrom(other);
+        // Implicit conversions: can this convert to other?
+        // This means: can other accept this?
+        return otherSP.isAssignableFrom(*this);
     }
 
     std::optional<std::unique_ptr<Type>> SmartPointerType::promoteWith(const Type& other) const {
@@ -84,5 +85,9 @@ namespace forge::types {
 
     bool SmartPointerType::isCopyable() const {
         return pointerKind_ == PointerKind::Shared || pointerKind_ == PointerKind::Weak;
+    }
+
+    std::unique_ptr<Type> SmartPointerType::clone() const {
+        return std::make_unique<SmartPointerType>(elementType_->clone(), pointerKind_);
     }
 }
