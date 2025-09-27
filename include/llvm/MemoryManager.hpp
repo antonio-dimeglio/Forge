@@ -40,7 +40,7 @@ public:
     void createSmartPointerVariable(const VariableDeclaration& node, llvm::Value* expressionValue);
     void generateSmartPointerCleanup();
     void trackSmartPointer(llvm::Value* smartPtr, SmartPointerType type);
-
+    void copySharedPointerVariable(const VariableDeclaration& node, llvm::Value* sourceSharedPtr);
     // Defer management
     void addDeferredCall(llvm::Function* func, std::vector<llvm::Value*> args);
     void emitDeferredCalls();

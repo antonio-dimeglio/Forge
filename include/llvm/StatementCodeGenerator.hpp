@@ -50,6 +50,12 @@ public:
     void generateExternStatement(const ExternStatement& node);
     void generateDeferStatement(const DeferStatement& node);
 
+    // Smart pointer assignment handling
+    void handleSmartPointerAssignment(const std::string& varName, llvm::Value* varPtr,
+                                    const ParsedType& lhsType, const Expression* rvalue);
+    void handleSharedPointerAssignment(const std::string& lhsVarName, llvm::Value* lhsVarPtr,
+                                     const std::string& rhsVarName);
+
     // Defer management
     void enterDeferScope();
     void exitDeferScope();

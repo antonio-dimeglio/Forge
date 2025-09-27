@@ -93,3 +93,34 @@ void MemoryManager::exitScope() {
         smartPointerScopes.pop_back();
     }
 }
+
+void MemoryManager::copySharedPointerVariable(const VariableDeclaration& node, llvm::Value* sourceSharedPtr) {
+    // TODO: Your implementation here
+    // 1. Create stack allocation for new shared pointer
+    // 2. Copy fields from source to destination
+    // 3. Call shared_ptr_retain() to increment ref_count
+    // 4. Register in scope
+    std::string varName = node.variable.getValue();
+    auto smartPtrType = LLVMTypeSystem::getLLVMType(context, node.type);
+
+    llvm::AllocaInst* sharedPtr = builder.CreateAlloca(smartPtrType, nullptr, varName);
+    llvm::Value* sourceRefCountPtr = builder.CreateGEP(smartPtrType, sourceSharedPtr, {builder.getInt32(0), builder.getInt32(0)});
+    llvm::Value* sourceRefCount = builder.CreateLoad(llvm::Type::getInt32Ty(context), sourceRefCountPtr);
+
+    llvm::Value* sourceDataPtr = builder.CreateGEP(smartPtrType, sourceSharedPtr, {builder.getInt32(0), builder.getInt32(1)});
+    llvm::Value* sourceData = builder.CreateLoad(llvm::PointerType::getUnqual(context), sourceDataPtr);
+
+    // Set ref_count in destination (field 0)
+    llvm::Value* destRefCountPtr = builder.CreateGEP(smartPtrType, sharedPtr, {builder.getInt32(0), builder.getInt32(0)});
+    builder.CreateStore(sourceRefCount, destRefCountPtr);
+
+    // Set data pointer in destination (field 1)
+    llvm::Value* destDataPtr = builder.CreateGEP(smartPtrType, sharedPtr, {builder.getInt32(0), builder.getInt32(1)});
+    builder.CreateStore(sourceData, destDataPtr);
+
+    llvm::Function* retainFunc = rfRegistry.getFunction(LLVMLabels::SHARED_PTR_RETAIN);
+    builder.CreateCall(retainFunc, {sharedPtr});
+
+    scopeManager.declare(varName, sharedPtr, node.type);
+    smartPointerScopes.back().push_back({sharedPtr, node.type.smartPointerType});
+}

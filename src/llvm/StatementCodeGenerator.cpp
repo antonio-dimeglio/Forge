@@ -96,7 +96,7 @@ void StatementCodeGenerator::generateExpressionStatement(const ExpressionStateme
 }
 
 void StatementCodeGenerator::generateVariableDeclaration(const VariableDeclaration& node) {
-    // For now the getLLVMType does not consider arrays
+    // TODO: Fix getLLVMType does not consider arrays
     auto varName = node.variable.getValue();
 
     if (scopeManager.isDeclaredInCurrentScope(varName)) {
@@ -109,6 +109,24 @@ void StatementCodeGenerator::generateVariableDeclaration(const VariableDeclarati
             auto varValue = expressionCodeGen.generate(*node.expr);
             memoryManager.createSmartPointerVariable(node, varValue);
             return;
+        } else if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(node.expr.get())) {
+            auto identValue = scopeManager.lookupType(identExpr->name);
+            
+            if (identValue->smartPointerType == SmartPointerType::Shared) {
+                if (node.type.smartPointerType != SmartPointerType::Shared) {
+                    ErrorReporter::compilationError("Cannot assign between different smart pointer types (unique/shared/weak).");
+                    return;
+                }
+                auto sourcePtr = scopeManager.lookup(identExpr->name);
+                memoryManager.copySharedPointerVariable(node, sourcePtr);
+                return;
+            } else if (identValue->smartPointerType == SmartPointerType::Weak){
+                ErrorReporter::compilationError("Unimplemented operation for weak pointers");
+                return;
+            } else {
+                ErrorReporter::compilationError("Cannot assign non safe pointer type to smart pointer.");
+                return; 
+            }
         } else {
             ErrorReporter::compilationError("Smart pointers must be assigned from 'new' expressions, not literals or other values");
             return;
@@ -151,6 +169,20 @@ void StatementCodeGenerator::generateAssignment(const Assignment& node) {
             return;
         }
 
+        // Get the type of the LHS variable
+        auto lhsType = scopeManager.lookupType(varName);
+        if (!lhsType) {
+            ErrorReporter::compilationError("Could not determine type of variable: " + varName);
+            return;
+        }
+
+        // Handle smart pointer assignments
+        if (lhsType->smartPointerType != SmartPointerType::None) {
+            handleSmartPointerAssignment(varName, varPtr, *lhsType, node.rvalue.get());
+            return;
+        }
+
+        // Regular variable assignment
         auto newValue = expressionCodeGen.generate(*node.rvalue);
         builder.CreateStore(newValue, varPtr);
     } else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(node.lvalue.get())) {
@@ -413,12 +445,114 @@ void StatementCodeGenerator::exitDeferScope() {
 }
 
 void StatementCodeGenerator::emitDeferredCalls() {
-    if (deferStack.empty()) return; 
-    
+    if (deferStack.empty()) return;
+
     auto& currScope = deferStack.back();
 
     for (auto it = currScope.rbegin(); it != currScope.rend(); ++it) {
         expressionCodeGen.generate(**it);
     }
+}
+
+void StatementCodeGenerator::handleSmartPointerAssignment(const std::string& varName, llvm::Value* varPtr,
+                                                         const ParsedType& lhsType, const Expression* rvalue) {
+    // Handle smart pointer assignments: sp1 = sp2, sp = literal, etc.
+
+    // First, validate what type of assignment this is
+    if (const auto* newExpr = dynamic_cast<const NewExpression*>(rvalue)) {
+        // sp = new 42 -> Invalid for existing smart pointers
+        ErrorReporter::compilationError("Cannot assign 'new' expression to existing smart pointer. Use variable declaration instead.");
+        return;
+
+    } else if (const auto* literalExpr = dynamic_cast<const LiteralExpression*>(rvalue)) {
+        // sp = 42 -> Invalid
+        ErrorReporter::compilationError("Cannot assign literal to smart pointer. Smart pointers must point to heap-allocated objects.");
+        return;
+
+    } else if (const auto* identExpr = dynamic_cast<const IdentifierExpression*>(rvalue)) {
+        // sp1 = sp2 -> Potentially valid, check types
+        std::string rhsVarName = identExpr->name;
+        auto rhsType = scopeManager.lookupType(rhsVarName);
+
+        if (!rhsType) {
+            ErrorReporter::undefinedVariable(rhsVarName);
+            return;
+        }
+
+        // Check smart pointer type compatibility
+        if (rhsType->smartPointerType == SmartPointerType::None) {
+            ErrorReporter::compilationError("Cannot assign regular variable to smart pointer.");
+            return;
+        }
+
+        if (lhsType.smartPointerType != rhsType->smartPointerType) {
+            ErrorReporter::compilationError("Cannot assign between different smart pointer types (unique/shared/weak).");
+            return;
+        }
+
+        // Check if unique pointers (should not be assignable)
+        if (lhsType.smartPointerType == SmartPointerType::Unique) {
+            ErrorReporter::compilationError("Unique pointers cannot be assigned. Use move semantics instead.");
+            return;
+        }
+
+        // Handle shared pointer assignment
+        if (lhsType.smartPointerType == SmartPointerType::Shared) {
+            handleSharedPointerAssignment(varName, varPtr, rhsVarName);
+            return;
+        }
+
+        // Handle weak pointer assignment (future)
+        if (lhsType.smartPointerType == SmartPointerType::Weak) {
+            ErrorReporter::compilationError("Weak pointer assignment not yet implemented.");
+            return;
+        }
+
+    } else {
+        // Other expression types (function calls, etc.)
+        ErrorReporter::compilationError("Invalid right-hand side for smart pointer assignment.");
+        return;
+    }
+}
+
+void StatementCodeGenerator::handleSharedPointerAssignment(const std::string& lhsVarName, llvm::Value* lhsVarPtr,
+                                                          const std::string& rhsVarName) {
+    // Handle: sp1 = sp2 (shared pointer assignment)
+
+    // 1. Release the old value in sp1
+    llvm::Function* releaseFunc = rfRegistry.getFunction(LLVMLabels::SHARED_PTR_RELEASE);
+    builder.CreateCall(releaseFunc, {lhsVarPtr});
+
+    // 2. Get the source shared pointer
+    auto rhsVarPtr = scopeManager.lookup(rhsVarName);
+    if (!rhsVarPtr) {
+        ErrorReporter::undefinedVariable(rhsVarName);
+        return;
+    }
+
+    // 3. Copy fields from source to destination (same as copySharedPointerVariable)
+    // Get the smart pointer type from the LHS variable type
+    auto lhsType = scopeManager.lookupType(lhsVarName);
+    auto smartPtrType = LLVMTypeSystem::getLLVMType(context, *lhsType);
+
+    // Get ref_count from source (field 0)
+    llvm::Value* sourceRefCountPtr = builder.CreateGEP(smartPtrType, rhsVarPtr, {builder.getInt32(0), builder.getInt32(0)});
+    llvm::Value* sourceRefCount = builder.CreateLoad(llvm::Type::getInt32Ty(context), sourceRefCountPtr);
+
+    // Get data pointer from source (field 1)
+    llvm::Value* sourceDataPtr = builder.CreateGEP(smartPtrType, rhsVarPtr, {builder.getInt32(0), builder.getInt32(1)});
+    llvm::Value* sourceData = builder.CreateLoad(llvm::PointerType::getUnqual(context), sourceDataPtr);
+
+    // Set ref_count in destination (field 0)
+    llvm::Value* destRefCountPtr = builder.CreateGEP(smartPtrType, lhsVarPtr, {builder.getInt32(0), builder.getInt32(0)});
+    builder.CreateStore(sourceRefCount, destRefCountPtr);
+
+    // Set data pointer in destination (field 1)
+    llvm::Value* destDataPtr = builder.CreateGEP(smartPtrType, lhsVarPtr, {builder.getInt32(0), builder.getInt32(1)});
+    builder.CreateStore(sourceData, destDataPtr);
+
+    // 4. Retain the new value
+    llvm::Function* retainFunc = rfRegistry.getFunction(LLVMLabels::SHARED_PTR_RETAIN);
+    builder.CreateCall(retainFunc, {lhsVarPtr});
 }
 

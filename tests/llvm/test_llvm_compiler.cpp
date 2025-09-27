@@ -738,3 +738,321 @@ TEST_F(LLVMCompilerTest, SmartPointerTypeSafety) {
         Not(HasSubstr("<badref>"))
     ));
 }
+
+TEST_F(LLVMCompilerTest, SharedPointerCopySemantics) {
+    // Test shared pointer copying and reference counting
+    std::string input = R"(
+        sp1: shared int = new 42
+        sp2: shared int = sp1
+        sp3: shared int = sp2
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("shared_ptr_retain"),  // Should call retain function
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerCreation) {
+    // Test basic shared pointer creation with different types
+    std::string input = R"(
+        sp_int: shared int = new 42
+        sp_float: shared float = new 3.14f
+        sp_double: shared double = new 2.718
+        sp_bool: shared bool = new true
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptrINT"),     // shared_ptr for int
+        HasSubstr("shared_ptrFLOAT"),   // shared_ptr for float
+        HasSubstr("shared_ptrDOUBLE"),  // shared_ptr for double
+        HasSubstr("shared_ptrBOOL"),    // shared_ptr for bool
+        HasSubstr("smart_ptr_malloc"),  // Should allocate heap memory
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerScopeCleanup) {
+    // Test that shared pointers are properly cleaned up when going out of scope
+    std::string input = R"(
+        {
+            sp1: shared int = new 100
+            sp2: shared int = sp1
+        }
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("shared_ptr_retain"),   // Copy should call retain
+        HasSubstr("shared_ptr_release"),  // Cleanup should call release
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerReferenceCounting) {
+    // Test multiple copies and cleanup to verify reference counting
+    std::string input = R"(
+        sp1: shared int = new 999
+        {
+            sp2: shared int = sp1
+            sp3: shared int = sp2
+            {
+                sp4: shared int = sp3
+            }
+        }
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("shared_ptr_retain"),   // Multiple retains for copies
+        HasSubstr("shared_ptr_release"),  // Multiple releases for cleanup
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+// ============================================================================
+// COMPREHENSIVE EDGE CASE TESTS FOR SMART POINTERS
+// ============================================================================
+
+TEST_F(LLVMCompilerTest, SharedPointerAssignmentEdgeCases) {
+    // Test shared pointer to shared pointer assignment (the bug we found)
+    std::string input = R"(
+        sp1: shared int = new 42
+        sp2: shared int = new 100
+        sp1 = sp2
+    )";
+
+    std::string ir = compileToIR(input);
+    // TODO: This currently doesn't handle reference counting properly
+    // We expect it to compile but may have memory leaks
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerInvalidAssignments) {
+    // Test that invalid assignments are caught
+    std::string literalAssign = R"(
+        sp: shared int = new 42
+        sp = 100
+    )";
+
+    // Should produce compilation errors
+    EXPECT_TRUE(compileWithErrorCheck(literalAssign));
+
+    std::string newAssign = R"(
+        sp: shared int = new 42
+        sp = new 200
+    )";
+
+    // Should also produce compilation errors (can't assign new to existing shared_ptr)
+    EXPECT_TRUE(compileWithErrorCheck(newAssign));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerSelfAssignment) {
+    // Test self-assignment edge case
+    std::string input = R"(
+        sp: shared int = new 42
+        sp = sp
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerNullScenarios) {
+    // Test behavior with null-like scenarios
+    std::string input = R"(
+        sp1: shared int = new 42
+        sp2: shared int = new 100
+        sp1 = sp2
+        sp2 = sp1
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, UniquePointerEdgeCases) {
+    // Test unique pointer creation and basic behavior
+    std::string input = R"(
+        up1: unique int = new 42
+        up2: unique float = new 3.14f
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("unique_ptr"),
+        HasSubstr("smart_ptr_malloc"),
+        HasSubstr("unique_ptr_release"),  // Should have cleanup
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, UniquePointerInvalidOperations) {
+    // Test that unique pointer copying is rejected
+    std::string copyAttempt = R"(
+        up1: unique int = new 42
+        up2: unique int = up1
+    )";
+
+    // Should produce compilation errors (unique pointers can't be copied)
+    EXPECT_TRUE(compileWithErrorCheck(copyAttempt));
+
+    std::string assignAttempt = R"(
+        up1: unique int = new 42
+        up1 = new 100
+    )";
+
+    // Should produce compilation errors
+    EXPECT_TRUE(compileWithErrorCheck(assignAttempt));
+}
+
+TEST_F(LLVMCompilerTest, MixedSmartPointerScenarios) {
+    // Test mixing different smart pointer types
+    std::string input = R"(
+        up: unique int = new 42
+        sp1: shared int = new 100
+        sp2: shared int = sp1
+        {
+            sp3: shared int = sp2
+            up2: unique float = new 3.14f
+        }
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("unique_ptr"),
+        HasSubstr("shared_ptr"),
+        HasSubstr("shared_ptr_retain"),
+        HasSubstr("unique_ptr_release"),
+        HasSubstr("shared_ptr_release"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SmartPointerMemoryLeakPrevention) {
+    // Test scenarios that could cause memory leaks
+    std::string input = R"(
+        {
+            sp1: shared int = new 42
+            sp2: shared int = new 100
+            sp3: shared int = sp1
+            sp1 = sp2  // Potential leak scenario
+        }
+        {
+            up: unique int = new 200
+        }
+    )";
+
+    std::string ir = compileToIR(input);
+    EXPECT_THAT(ir, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("unique_ptr"),
+        HasSubstr("shared_ptr_release"),
+        HasSubstr("unique_ptr_release"),
+        Not(HasSubstr("<badref>"))
+    ));
+}
+
+TEST_F(LLVMCompilerTest, SharedPointerVariableDeclarationVsAssignment) {
+    // Test distinction between variable declaration (:=) and assignment (=)
+
+    // Variable declarations should work
+    std::string declarations = R"(
+        sp1: shared int = new 42      // Declaration with new - should work
+        sp2: shared int = sp1         // Declaration with copy - should work
+    )";
+
+    std::string ir1 = compileToIR(declarations);
+    EXPECT_THAT(ir1, AllOf(
+        HasSubstr("shared_ptr"),
+        HasSubstr("shared_ptr_retain"),  // Copy should call retain
+        Not(HasSubstr("<badref>"))
+    ));
+
+    // Assignment should currently work but may have bugs
+    std::string assignments = R"(
+        sp1: shared int = new 42
+        sp2: shared int = new 100
+        sp1 = sp2                     // Assignment - currently buggy
+    )";
+
+    std::string ir2 = compileToIR(assignments);
+    EXPECT_THAT(ir2, AllOf(
+        HasSubstr("shared_ptr"),
+        Not(HasSubstr("<badref>"))
+        // TODO: Should check for proper release/retain calls
+    ));
+}
+
+TEST_F(LLVMCompilerTest, UniquePointerVariableDeclarationVsAssignment) {
+    // Test unique pointer behavior for declarations vs assignments
+
+    // Variable declarations should work
+    std::string declarations = R"(
+        up1: unique int = new 42      // Declaration with new - should work
+    )";
+
+    std::string ir1 = compileToIR(declarations);
+    EXPECT_THAT(ir1, AllOf(
+        HasSubstr("unique_ptr"),
+        HasSubstr("smart_ptr_malloc"),
+        Not(HasSubstr("<badref>"))
+    ));
+
+    // Copy declaration should fail
+    std::string copyDeclaration = R"(
+        up1: unique int = new 42
+        up2: unique int = up1         // Should fail - unique pointers can't be copied
+    )";
+
+    EXPECT_TRUE(compileWithErrorCheck(copyDeclaration));
+
+    // Assignment should fail
+    std::string assignment = R"(
+        up1: unique int = new 42
+        up2: unique int = new 100
+        up1 = up2                     // Should fail - unique pointers can't be assigned
+    )";
+
+    EXPECT_TRUE(compileWithErrorCheck(assignment));
+}
+
+TEST_F(LLVMCompilerTest, SmartPointerInvalidMixedOperations) {
+    // Test invalid operations between different smart pointer types
+
+    std::string sharedToUnique = R"(
+        sp: shared int = new 42
+        up: unique int = sp           // Should fail - can't assign shared to unique
+    )";
+
+    EXPECT_TRUE(compileWithErrorCheck(sharedToUnique));
+
+    std::string uniqueToShared = R"(
+        up: unique int = new 42
+        sp: shared int = up           // Should fail - can't assign unique to shared
+    )";
+
+    EXPECT_TRUE(compileWithErrorCheck(uniqueToShared));
+
+    std::string mixedAssignment = R"(
+        sp: shared int = new 42
+        up: unique int = new 100
+        sp = up                       // Should fail - can't assign unique to shared
+    )";
+
+    EXPECT_TRUE(compileWithErrorCheck(mixedAssignment));
+}
